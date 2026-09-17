@@ -15,6 +15,9 @@ from .. import models
 
 router = APIRouter()
 
+ALLOWED_UPLOAD_EXTENSIONS = {".xlsx", ".xls", ".csv"}
+MAX_UPLOAD_SIZE = 25 * 1024 * 1024  # 25MB — совпадает с client_max_body_size в nginx
+
 
 def _require_user(request: Request, user):
     if not user:
@@ -111,10 +114,39 @@ def upload_price_file(
         db.commit()
         return RedirectResponse(f"/suppliers/{supplier_id}", status_code=303)
 
+    # Валидация загружаемого файла: расширение + размер (защита от произвольных
+    # файлов и переполнения диска — см. security-review чеклист).
+    original_name = file.filename or ""
+    extension = os.path.splitext(original_name)[1].lower()
+    if extension not in ALLOWED_UPLOAD_EXTENSIONS:
+        upload = models.Upload(
+            supplier_id=supplier.id,
+            original_filename=original_name,
+            status="error",
+            error_message=f"Недопустимый тип файла: {extension or '(без расширения)'}",
+        )
+        db.add(upload)
+        db.commit()
+        return RedirectResponse(f"/suppliers/{supplier_id}", status_code=303)
+
+    raw_bytes = file.file.read(MAX_UPLOAD_SIZE + 1)
+    if len(raw_bytes) > MAX_UPLOAD_SIZE:
+        upload = models.Upload(
+            supplier_id=supplier.id,
+            original_filename=original_name,
+            status="error",
+            error_message="Файл слишком большой (максимум 25MB).",
+        )
+        db.add(upload)
+        db.commit()
+        return RedirectResponse(f"/suppliers/{supplier_id}", status_code=303)
+
     os.makedirs(settings.upload_dir, exist_ok=True)
-    tmp_path = os.path.join(settings.upload_dir, f"{uuid.uuid4().hex}_{file.filename}")
+    # Имя файла на диске не зависит от исходного (uuid) — исходное имя нигде
+    # не используется как путь, поэтому path traversal через file.filename исключён.
+    tmp_path = os.path.join(settings.upload_dir, f"{uuid.uuid4().hex}{extension}")
     with open(tmp_path, "wb") as f:
-        f.write(file.file.read())
+        f.write(raw_bytes)
 
     upload = models.Upload(supplier_id=supplier.id, original_filename=file.filename)
 

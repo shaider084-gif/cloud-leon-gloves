@@ -35,7 +35,7 @@ class Upload(Base):
     __tablename__ = "uploads"
 
     id = Column(Integer, primary_key=True)
-    supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=False)
+    supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=False, index=True)
     original_filename = Column(String(500))
     status = Column(String(32), default="done")  # done / error
     error_message = Column(Text, nullable=True)
@@ -51,8 +51,8 @@ class Product(Base):
     __tablename__ = "products"
 
     id = Column(Integer, primary_key=True)
-    upload_id = Column(Integer, ForeignKey("uploads.id"), nullable=False)
-    supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=False)
+    upload_id = Column(Integer, ForeignKey("uploads.id"), nullable=False, index=True)
+    supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=False, index=True)
 
     article = Column(String(255))       # Артикул
     name = Column(String(1000))         # Название
