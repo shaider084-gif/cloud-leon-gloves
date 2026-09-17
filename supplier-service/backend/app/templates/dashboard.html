@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Поставщики{% endblock %}
+{% block content %}
+<h1>Поставщики</h1>
+
+<table class="list">
+    <thead>
+        <tr><th>Название</th><th>Slug (код парсера)</th><th>Парсер</th><th></th></tr>
+    </thead>
+    <tbody>
+        {% for s in suppliers %}
+        <tr>
+            <td>{{ s.name }}</td>
+            <td><code>{{ s.slug }}</code></td>
+            <td>
+                {% if s.slug in available_parsers %}
+                    <span class="ok">есть</span>
+                {% else %}
+                    <span class="warn">не написан</span>
+                {% endif %}
+            </td>
+            <td><a href="/suppliers/{{ s.id }}">Открыть →</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4">Пока нет ни одного поставщика.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<div class="card narrow">
+    <h2>Добавить поставщика</h2>
+    <form method="post" action="/suppliers">
+        <label>Название
+            <input type="text" name="name" placeholder="Например: ЛЕОН" required>
+        </label>
+        <label>Slug (латиницей, без пробелов — будет использоваться в коде парсера)
+            <input type="text" name="slug" placeholder="leon" pattern="[a-z0-9_\-]+" required>
+        </label>
+        <button type="submit">Добавить</button>
+    </form>
+    <p class="hint">
+        После добавления поставщика для него нужно написать парсер-файл
+        <code>app/parsers/&lt;slug&gt;.py</code> и зарегистрировать его в
+        <code>app/parsers/registry.py</code> — это делается через Claude Code.
+        Пока парсера нет, загрузка файлов для этого поставщика будет выдавать ошибку.
+    </p>
+</div>
+{% endblock %}

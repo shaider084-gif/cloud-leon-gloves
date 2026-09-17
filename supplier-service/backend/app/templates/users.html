@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Сотрудники{% endblock %}
+{% block content %}
+<p><a href="/">← Поставщики</a></p>
+<h1>Сотрудники</h1>
+
+<table class="list">
+    <thead><tr><th>Логин</th><th>Права</th></tr></thead>
+    <tbody>
+        {% for u in users %}
+        <tr><td>{{ u.username }}</td><td>{{ "Админ" if u.is_admin else "Сотрудник" }}</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<div class="card narrow">
+    <h2>Добавить сотрудника</h2>
+    <form method="post" action="/users">
+        <label>Логин
+            <input type="text" name="username" required>
+        </label>
+        <label>Пароль
+            <input type="password" name="password" required>
+        </label>
+        <button type="submit">Добавить</button>
+    </form>
+</div>
+{% endblock %}

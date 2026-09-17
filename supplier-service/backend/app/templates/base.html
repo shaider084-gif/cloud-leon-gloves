@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Сервис поставщиков{% endblock %}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="/">Сервис поставщиков</a>
+        {% if user %}
+        <nav>
+            <span class="user">{{ user.username }}</span>
+            {% if user.is_admin %}<a href="/users">Сотрудники</a>{% endif %}
+            <a href="/logout">Выйти</a>
+        </nav>
+        {% endif %}
+    </header>
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

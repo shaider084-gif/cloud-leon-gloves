@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ supplier.name }}{% endblock %}
+{% block content %}
+<p><a href="/">← Все поставщики</a></p>
+<h1>{{ supplier.name }} <code class="slug">{{ supplier.slug }}</code></h1>
+
+{% if not parser_available %}
+<p class="warn-box">
+    Для этого поставщика ещё не написан парсер — загрузка файла не сработает,
+    пока не добавите <code>app/parsers/{{ supplier.slug }}.py</code>.
+</p>
+{% endif %}
+
+<div class="card narrow">
+    <h2>Загрузить новый прайс</h2>
+    <form method="post" action="/suppliers/{{ supplier.id }}/upload" enctype="multipart/form-data">
+        <input type="file" name="file" required>
+        <button type="submit">Загрузить и обработать</button>
+    </form>
+</div>
+
+<h2>История загрузок</h2>
+<table class="list">
+    <thead>
+        <tr><th>Дата</th><th>Файл</th><th>Статус</th><th>Товаров</th><th></th></tr>
+    </thead>
+    <tbody>
+        {% for u in uploads %}
+        <tr>
+            <td>{{ u.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+            <td>{{ u.original_filename }}</td>
+            <td>
+                {% if u.status == 'done' %}<span class="ok">готово</span>
+                {% else %}<span class="error-badge" title="{{ u.error_message }}">ошибка</span>{% endif %}
+            </td>
+            <td>{{ u.products_count }}</td>
+            <td>
+                {% if u.status == 'done' %}
+                <a href="/uploads/{{ u.id }}/download">Скачать .xlsx</a>
+                {% endif %}
+            </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5">Загрузок ещё не было.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
