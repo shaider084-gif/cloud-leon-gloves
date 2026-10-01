@@ -5,6 +5,7 @@ from .demo import DemoParser
 from .gward import GwardParser
 from .mapping import MappingParser
 from .spetszaschita import SpetszaschitaParser
+from .technoavia import TechnoaviaParser
 
 # Реестр парсеров: ключ — slug поставщика (как в таблице suppliers.slug),
 # значение — класс парсера. Чтобы добавить нового поставщика — импортируйте
@@ -13,6 +14,7 @@ PARSERS = {
     "demo": DemoParser,
     "gward": GwardParser,
     "pkf_spetczaschita": SpetszaschitaParser,
+    "technoavia_spetsobuv": TechnoaviaParser,
 }
 
 
