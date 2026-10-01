@@ -201,6 +201,19 @@ def _split_slash_variants(field: dict) -> Tuple[List[dict], bool]:
                 })
         return result, False
 
+    # Ф1: один код на 2 варианта кроя ("4 детали кроя" / "бесшовный") с разными
+    # ценами — по решению пользователя (сверка прайса 2026-10, после переноса
+    # на прайс-поставщики.рф) берём вариант с минимальной ценой, вторую не
+    # заводим отдельным товаром.
+    if models == ["Ф1"] and len(prices) >= 2:
+        names_i = [n.strip() for n in field["name"].split("/")] if field["name"] and "/" in field["name"] else None
+        pairs = list(zip(names_i or [field["name"]] * len(prices), prices))
+        try:
+            name_i, price_i = min(pairs, key=lambda pair: float(pair[1].replace(" ", "")))
+        except ValueError:
+            return [field], True
+        return [{**field, "model": "Ф1", "name": _collapse_ws(name_i), "price": price_i}], False
+
     if len(models) != len(prices) or len(models) < 2:
         return [field], True
 
