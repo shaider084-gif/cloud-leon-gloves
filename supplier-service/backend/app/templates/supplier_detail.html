@@ -16,60 +16,72 @@
 <p class="hint">Колонки настроены — новые прайсы этого поставщика сверяются с текущим каталогом (вкладка «Обновление цен»).</p>
 {% endif %}
 
-{% if latest_upload %}
-<div class="card narrow">
-    <h2>Исходный прайс-лист</h2>
-    <p>
-        {{ latest_upload.original_filename }}
-        <span class="hint">от {{ latest_upload.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+<div class="cards-row">
+    {% if has_mapping or has_custom_parser %}
+    <div class="card narrow">
+        <h2>Обновление цен</h2>
+        <p class="hint">Новый прайс будет сверен с текущим каталогом по Артикулу — вы увидите, что изменилось, прежде чем сохранить.</p>
+        <form method="post" action="/suppliers/{{ supplier.id }}/price-update/preview" enctype="multipart/form-data">
+            <input type="file" name="file" required>
+            <button type="submit">Загрузить и сравнить</button>
+        </form>
+    </div>
+    {% else %}
+    <div class="card narrow">
+        <h2>Загрузить новый прайс</h2>
+        <form method="post" action="/suppliers/{{ supplier.id }}/upload" enctype="multipart/form-data">
+            <input type="file" name="file" required>
+            <button type="submit">Загрузить и обработать</button>
+        </form>
+    </div>
+    {% endif %}
+
+    {% if latest_upload %}
+    <div class="card narrow small">
+        <h2>Текущий прайс</h2>
+        <p>{{ latest_upload.original_filename }}</p>
+        <p class="hint">от {{ latest_upload.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
         {% if latest_upload.file_path %}
-        — <a href="/uploads/{{ latest_upload.id }}/original">Скачать исходник</a>
+        <p><a href="/uploads/{{ latest_upload.id }}/original">Скачать исходник</a></p>
         {% else %}
-        <span class="hint">(файл не сохранён — загружен до появления этой функции)</span>
+        <p class="hint">файл не сохранён (загружен до этой функции)</p>
         {% endif %}
-    </p>
+    </div>
+    {% endif %}
+
     {% if previous_upload %}
-    <p class="hint">
-        Предыдущий: {{ previous_upload.original_filename }} от {{ previous_upload.created_at.strftime('%d.%m.%Y %H:%M') }}
+    <div class="card narrow small">
+        <h2>Предыдущий прайс</h2>
+        <p>{{ previous_upload.original_filename }}</p>
+        <p class="hint">от {{ previous_upload.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
         {% if previous_upload.file_path %}
-        — <a href="/uploads/{{ previous_upload.id }}/original">скачать</a>
+        <p><a href="/uploads/{{ previous_upload.id }}/original">Скачать исходник</a></p>
+        {% else %}
+        <p class="hint">файл не сохранён (загружен до этой функции)</p>
         {% endif %}
-    </p>
+    </div>
     {% endif %}
 </div>
-{% endif %}
 
-<div class="card narrow">
-    <h2>Контакты и склады</h2>
-    <form method="post" action="/suppliers/{{ supplier.id }}/info">
-        <label>Контакты поставщика
+<div class="cards-row">
+    <div class="card narrow small">
+        <h2>Контакты поставщика</h2>
+        <form method="post" action="/suppliers/{{ supplier.id }}/info">
             <textarea name="contacts" rows="3" placeholder="Телефон, email, контактное лицо…">{{ supplier.contacts or "" }}</textarea>
-        </label>
-        <label>Адреса складов для самовывоза
-            <textarea name="pickup_addresses" rows="3" placeholder="По одному адресу на строке…">{{ supplier.pickup_addresses or "" }}</textarea>
-        </label>
-        <button type="submit">Сохранить</button>
-    </form>
-</div>
+            <input type="hidden" name="pickup_addresses" value="{{ supplier.pickup_addresses or '' }}">
+            <button type="submit">Сохранить</button>
+        </form>
+    </div>
 
-{% if has_mapping or has_custom_parser %}
-<div class="card narrow">
-    <h2>Обновление цен</h2>
-    <p class="hint">Новый прайс будет сверен с текущим каталогом по Артикулу — вы увидите, что изменилось, прежде чем сохранить.</p>
-    <form method="post" action="/suppliers/{{ supplier.id }}/price-update/preview" enctype="multipart/form-data">
-        <input type="file" name="file" required>
-        <button type="submit">Загрузить и сравнить</button>
-    </form>
+    <div class="card narrow small">
+        <h2>Адреса складов для самовывоза</h2>
+        <form method="post" action="/suppliers/{{ supplier.id }}/info">
+            <input type="hidden" name="contacts" value="{{ supplier.contacts or '' }}">
+            <textarea name="pickup_addresses" rows="3" placeholder="По одному адресу на строке…">{{ supplier.pickup_addresses or "" }}</textarea>
+            <button type="submit">Сохранить</button>
+        </form>
+    </div>
 </div>
-{% else %}
-<div class="card narrow">
-    <h2>Загрузить новый прайс</h2>
-    <form method="post" action="/suppliers/{{ supplier.id }}/upload" enctype="multipart/form-data">
-        <input type="file" name="file" required>
-        <button type="submit">Загрузить и обработать</button>
-    </form>
-</div>
-{% endif %}
 
 <h2>История загрузок</h2>
 <table class="list">
