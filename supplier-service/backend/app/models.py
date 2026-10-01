@@ -42,6 +42,11 @@ class Supplier(Base):
     column_mapping = Column(JSONType, nullable=True)
     markup_percent = Column(Numeric(5, 2), nullable=True, default=30)
 
+    # Свободный текст — формат контактов/адресов у поставщиков слишком разный,
+    # чтобы заводить под них жёсткую структуру полей.
+    contacts = Column(Text, nullable=True)           # Контакты поставщика
+    pickup_addresses = Column(Text, nullable=True)   # Адреса складов для самовывоза
+
     uploads = relationship("Upload", back_populates="supplier", cascade="all, delete-orphan")
 
 
@@ -55,6 +60,10 @@ class Upload(Base):
     error_message = Column(Text, nullable=True)
     products_count = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Путь к сохранённому исходному файлу прайса (None у загрузок, сделанных
+    # до появления этой возможности — старые временные файлы не хранились).
+    file_path = Column(String(500), nullable=True)
 
     supplier = relationship("Supplier", back_populates="uploads")
     products = relationship("Product", back_populates="upload", cascade="all, delete-orphan")

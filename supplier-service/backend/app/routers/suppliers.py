@@ -3,7 +3,7 @@ from collections import Counter
 from urllib.parse import quote
 
 from fastapi import APIRouter, Request, Depends, Form, UploadFile, File, Query
-from fastapi.responses import RedirectResponse, HTMLResponse, StreamingResponse
+from fastapi.responses import RedirectResponse, HTMLResponse, StreamingResponse, FileResponse
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -139,6 +139,8 @@ def supplier_detail(
             "all_tovar_types": all_tovar_types,
             "selected_tovar": tovar,
             "param_keys": param_keys,
+            "latest_upload": uploads[0] if uploads else None,
+            "previous_upload": uploads[1] if len(uploads) > 1 else None,
         },
     )
 
@@ -194,7 +196,7 @@ def upload_price_file(
     if custom_parser:
         try:
             parsed_products = custom_parser.parse(tmp_path)
-            _save_products(db, supplier, original_name, parsed_products)
+            _save_products(db, supplier, original_name, parsed_products, tmp_path=tmp_path)
         except Exception as exc:  # noqa: BLE001 — показываем ошибку парсинга пользователю
             db.rollback()
             _save_upload_error(db, supplier, original_name, str(exc))
@@ -326,7 +328,7 @@ async def map_columns_submit(
     try:
         parser = MappingParser(supplier.column_mapping, supplier.markup_percent)
         parsed_products = parser.parse(tmp_path)
-        _save_products(db, supplier, original, parsed_products)
+        _save_products(db, supplier, original, parsed_products, tmp_path=tmp_path)
     except Exception as exc:  # noqa: BLE001
         db.rollback()
         _save_upload_error(db, supplier, original, str(exc))
@@ -337,6 +339,49 @@ async def map_columns_submit(
             pass
 
     return RedirectResponse(f"/suppliers/{supplier_id}", status_code=303)
+
+
+@router.post("/suppliers/{supplier_id}/info")
+def update_supplier_info(
+    supplier_id: int,
+    request: Request,
+    contacts: str = Form(""),
+    pickup_addresses: str = Form(""),
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    redirect = _require_user(request, user)
+    if redirect:
+        return redirect
+    supplier = db.get(models.Supplier, supplier_id)
+    if not supplier:
+        return RedirectResponse("/", status_code=303)
+    supplier.contacts = contacts.strip() or None
+    supplier.pickup_addresses = pickup_addresses.strip() or None
+    db.add(supplier)
+    db.commit()
+    return RedirectResponse(f"/suppliers/{supplier_id}", status_code=303)
+
+
+@router.get("/uploads/{upload_id}/original")
+def download_original_upload(
+    upload_id: int,
+    request: Request,
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Скачать именно присланный поставщиком файл (не пересобранный из БД) —
+    доступно только для загрузок, сделанных после появления этой возможности."""
+    redirect = _require_user(request, user)
+    if redirect:
+        return redirect
+    upload = db.get(models.Upload, upload_id)
+    if not upload or not upload.file_path or not os.path.isfile(upload.file_path):
+        return RedirectResponse("/", status_code=303)
+    return FileResponse(
+        upload.file_path,
+        filename=upload.original_filename or os.path.basename(upload.file_path),
+    )
 
 
 @router.get("/uploads/{upload_id}/download")

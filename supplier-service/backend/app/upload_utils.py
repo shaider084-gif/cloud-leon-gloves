@@ -28,11 +28,32 @@ def save_upload_error(db: Session, supplier: models.Supplier, filename: str, mes
     db.commit()
 
 
-def save_products(db: Session, supplier: models.Supplier, filename: str, parsed_products: List[ProductIn]) -> None:
+ORIGINALS_SUBDIR = "originals"  # внутри settings.upload_dir — постоянное хранилище исходников прайсов
+
+
+def save_products(
+    db: Session,
+    supplier: models.Supplier,
+    filename: str,
+    parsed_products: List[ProductIn],
+    tmp_path: Optional[str] = None,
+) -> None:
+    """tmp_path (если передан) — временный файл исходника (см.
+    validate_and_save_upload); переносится в постоянное хранилище и
+    привязывается к загрузке, чтобы на странице поставщика можно было
+    скачать именно присланный файл, а не только распарсенные товары."""
     upload = models.Upload(supplier_id=supplier.id, original_filename=filename)
     upload.products_count = len(parsed_products)
     db.add(upload)
     db.flush()  # получить upload.id
+
+    if tmp_path and os.path.isfile(tmp_path):
+        originals_dir = os.path.join(settings.upload_dir, ORIGINALS_SUBDIR)
+        os.makedirs(originals_dir, exist_ok=True)
+        extension = os.path.splitext(tmp_path)[1]
+        dest_path = os.path.join(originals_dir, f"{upload.id}{extension}")
+        os.replace(tmp_path, dest_path)
+        upload.file_path = dest_path
 
     for p in parsed_products:
         db.add(

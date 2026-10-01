@@ -110,7 +110,7 @@ def price_update_apply(
     try:
         parser = resolve_parser(supplier)
         parsed_products = parser.parse(tmp_path)
-        _save_products(db, supplier, original, parsed_products)
+        _save_products(db, supplier, original, parsed_products, tmp_path=tmp_path)
     except Exception as exc:  # noqa: BLE001
         db.rollback()
         _save_upload_error(db, supplier, original, str(exc))

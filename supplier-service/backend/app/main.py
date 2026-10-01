@@ -56,12 +56,24 @@ def _lightweight_migrate():
             conn.execute(text(
                 "ALTER TABLE products ALTER COLUMN image_url TYPE TEXT"
             ))
+            conn.execute(text(
+                "ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS contacts TEXT"
+            ))
+            conn.execute(text(
+                "ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS pickup_addresses TEXT"
+            ))
+            conn.execute(text(
+                "ALTER TABLE uploads ADD COLUMN IF NOT EXISTS file_path VARCHAR(500)"
+            ))
         return
 
     for stmt in (
         "ALTER TABLE products ADD COLUMN external_product_id VARCHAR(255)",
         "ALTER TABLE products ADD COLUMN external_variant_id VARCHAR(255)",
         "ALTER TABLE products ADD COLUMN description TEXT",
+        "ALTER TABLE suppliers ADD COLUMN contacts TEXT",
+        "ALTER TABLE suppliers ADD COLUMN pickup_addresses TEXT",
+        "ALTER TABLE uploads ADD COLUMN file_path VARCHAR(500)",
     ):
         try:
             with engine.begin() as conn:

@@ -29,7 +29,7 @@ h1 { margin-bottom: 16px; }
 }
 .card.narrow { max-width: 480px; }
 form label { display: block; margin-bottom: 14px; font-size: 14px; color: #374151; }
-form input[type=text], form input[type=password], form input[type=file],
+form input[type=text], form input[type=password], form input[type=file], form textarea,
 table.list select, table.list input[type=text] {
     display: block;
     width: 100%;
@@ -39,6 +39,7 @@ table.list select, table.list input[type=text] {
     border-radius: 6px;
     font-size: 14px;
 }
+form textarea { font-family: inherit; resize: vertical; }
 button {
     background: #2563eb;
     color: white;

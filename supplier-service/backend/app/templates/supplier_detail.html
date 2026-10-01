@@ -16,6 +16,42 @@
 <p class="hint">Колонки настроены — новые прайсы этого поставщика сверяются с текущим каталогом (вкладка «Обновление цен»).</p>
 {% endif %}
 
+{% if latest_upload %}
+<div class="card narrow">
+    <h2>Исходный прайс-лист</h2>
+    <p>
+        {{ latest_upload.original_filename }}
+        <span class="hint">от {{ latest_upload.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+        {% if latest_upload.file_path %}
+        — <a href="/uploads/{{ latest_upload.id }}/original">Скачать исходник</a>
+        {% else %}
+        <span class="hint">(файл не сохранён — загружен до появления этой функции)</span>
+        {% endif %}
+    </p>
+    {% if previous_upload %}
+    <p class="hint">
+        Предыдущий: {{ previous_upload.original_filename }} от {{ previous_upload.created_at.strftime('%d.%m.%Y %H:%M') }}
+        {% if previous_upload.file_path %}
+        — <a href="/uploads/{{ previous_upload.id }}/original">скачать</a>
+        {% endif %}
+    </p>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="card narrow">
+    <h2>Контакты и склады</h2>
+    <form method="post" action="/suppliers/{{ supplier.id }}/info">
+        <label>Контакты поставщика
+            <textarea name="contacts" rows="3" placeholder="Телефон, email, контактное лицо…">{{ supplier.contacts or "" }}</textarea>
+        </label>
+        <label>Адреса складов для самовывоза
+            <textarea name="pickup_addresses" rows="3" placeholder="По одному адресу на строке…">{{ supplier.pickup_addresses or "" }}</textarea>
+        </label>
+        <button type="submit">Сохранить</button>
+    </form>
+</div>
+
 {% if has_mapping or has_custom_parser %}
 <div class="card narrow">
     <h2>Обновление цен</h2>
