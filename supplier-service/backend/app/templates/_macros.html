@@ -11,12 +11,14 @@
 {% macro image_cell(urls, limit=4) %}
 {%- set items = (urls or "").split() -%}
 {%- if items -%}
-<div class="thumbs">
+{#- data-full — полный список (не только показанные limit=4), по нему открывается
+   просмотр поверх страницы (см. скрипт в base.html) и "+N" со всеми фото -#}
+<div class="thumbs" data-full="{{ items|join(' ') }}">
 {%- for u in items[:limit] %}
-<a href="{{ u }}" target="_blank" rel="noopener"><img src="{{ u }}" alt="" loading="lazy" referrerpolicy="no-referrer"></a>
+<img src="{{ u }}" alt="" loading="lazy" referrerpolicy="no-referrer">
 {%- endfor %}
 {%- if items|length > limit %}
-<span class="thumb-more">+{{ items|length - limit }}</span>
+<span class="thumb-more" role="button" tabindex="0">+{{ items|length - limit }}</span>
 {%- endif %}
 </div>
 {%- endif -%}

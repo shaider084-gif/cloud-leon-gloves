@@ -22,6 +22,16 @@
     <main class="container{% block container_extra_class %}{% endblock %}">
         {% block content %}{% endblock %}
     </main>
+
+    <div id="lightbox-overlay">
+        <button type="button" id="lightbox-close" aria-label="Закрыть">&times;</button>
+        <button type="button" id="lightbox-prev" class="lightbox-nav" aria-label="Предыдущее фото">&#8249;</button>
+        <img id="lightbox-main" src="" alt="">
+        <button type="button" id="lightbox-next" class="lightbox-nav" aria-label="Следующее фото">&#8250;</button>
+        <div id="lightbox-counter"></div>
+        <div id="lightbox-thumbs"></div>
+    </div>
+
     <script>
     document.addEventListener("click", function (e) {
         if (!e.target.classList.contains("desc-toggle")) return;
@@ -41,6 +51,76 @@
             e.target.textContent = "Показать";
         }
     });
+
+    // Просмотр фото поверх страницы — по клику на миниатюру (товары разных
+    // таблиц: catalog_view.html, supplier_detail.html) или на "+N" (все фото,
+    // не только показанные 4 в ячейке — см. data-full в _macros.html).
+    (function () {
+        var overlay = document.getElementById("lightbox-overlay");
+        var mainImg = document.getElementById("lightbox-main");
+        var counter = document.getElementById("lightbox-counter");
+        var thumbsBar = document.getElementById("lightbox-thumbs");
+        if (!overlay) return;
+
+        var urls = [];
+        var index = 0;
+
+        function render() {
+            mainImg.src = urls[index];
+            counter.textContent = (index + 1) + " / " + urls.length;
+            thumbsBar.innerHTML = "";
+            if (urls.length < 2) return;
+            urls.forEach(function (u, i) {
+                var t = document.createElement("img");
+                t.src = u;
+                t.loading = "lazy";
+                if (i === index) t.className = "active";
+                t.addEventListener("click", function () { index = i; render(); });
+                thumbsBar.appendChild(t);
+            });
+        }
+
+        function open(list, startIndex) {
+            urls = list;
+            index = startIndex;
+            render();
+            overlay.classList.add("open");
+        }
+
+        function close() {
+            overlay.classList.remove("open");
+            mainImg.src = "";
+        }
+
+        function step(delta) {
+            index = (index + delta + urls.length) % urls.length;
+            render();
+        }
+
+        document.addEventListener("click", function (e) {
+            var thumb = e.target.closest(".thumbs img");
+            var more = e.target.closest(".thumb-more");
+            if (!thumb && !more) return;
+            var container = (thumb || more).closest(".thumbs");
+            var full = (container.dataset.full || "").split(" ").filter(Boolean);
+            if (!full.length) return;
+            var startIndex = thumb ? Array.prototype.indexOf.call(container.querySelectorAll("img"), thumb) : 0;
+            open(full, Math.max(0, startIndex));
+        });
+
+        document.getElementById("lightbox-close").addEventListener("click", close);
+        document.getElementById("lightbox-prev").addEventListener("click", function () { step(-1); });
+        document.getElementById("lightbox-next").addEventListener("click", function () { step(1); });
+        overlay.addEventListener("click", function (e) {
+            if (e.target === overlay) close();
+        });
+        document.addEventListener("keydown", function (e) {
+            if (!overlay.classList.contains("open")) return;
+            if (e.key === "Escape") close();
+            else if (e.key === "ArrowLeft") step(-1);
+            else if (e.key === "ArrowRight") step(1);
+        });
+    })();
     </script>
 </body>
 </html>

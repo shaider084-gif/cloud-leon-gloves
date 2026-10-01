@@ -145,7 +145,23 @@ tr.price-higher:hover { background: #fee2e2; }
 td.own-site { background: #ede9fe; box-shadow: inset 3px 0 0 #7c3aed; }
 
 .thumbs { display: grid; grid-template-columns: repeat(2, 48px); gap: 4px; }
-.thumbs img { display: block; width: 48px; height: 48px; object-fit: cover; border: 1px solid #e5e7eb; border-radius: 4px; background: #f3f4f6; }
-.thumbs a:hover img { border-color: #2563eb; }
-.thumb-more { display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; border: 1px dashed #9ca3af; border-radius: 4px; font-size: 12px; color: #6b7280; }
+.thumbs img { display: block; width: 48px; height: 48px; object-fit: cover; border: 1px solid #e5e7eb; border-radius: 4px; background: #f3f4f6; cursor: zoom-in; }
+.thumbs img:hover { border-color: #2563eb; }
+.thumb-more { display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; border: 1px dashed #9ca3af; border-radius: 4px; font-size: 12px; color: #6b7280; cursor: pointer; }
+.thumb-more:hover { border-color: #2563eb; color: #2563eb; }
+
+/* Просмотр фото поверх страницы (открывается по клику на миниатюру или "+N") */
+#lightbox-overlay { display: none; position: fixed; inset: 0; background: rgba(17, 24, 39, 0.9); z-index: 1000; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
+#lightbox-overlay.open { display: flex; }
+#lightbox-close { position: absolute; top: 16px; right: 24px; background: none; border: none; color: #fff; font-size: 32px; line-height: 1; cursor: pointer; }
+#lightbox-main { max-width: 90vw; max-height: 70vh; object-fit: contain; border-radius: 4px; }
+#lightbox-counter { color: #d1d5db; font-size: 13px; margin-top: 12px; }
+#lightbox-thumbs { display: flex; gap: 8px; margin-top: 12px; max-width: 90vw; overflow-x: auto; padding-bottom: 4px; }
+#lightbox-thumbs img { width: 56px; height: 56px; object-fit: cover; border-radius: 4px; opacity: 0.5; cursor: pointer; flex: none; border: 2px solid transparent; }
+#lightbox-thumbs img:hover { opacity: 0.8; }
+#lightbox-thumbs img.active { opacity: 1; border-color: #fff; }
+.lightbox-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.15); border: none; color: #fff; font-size: 24px; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; }
+.lightbox-nav:hover { background: rgba(255,255,255,0.3); }
+#lightbox-prev { left: 16px; }
+#lightbox-next { right: 16px; }
 td .price-warn { color: #dc2626; font-weight: 700; cursor: help; }
