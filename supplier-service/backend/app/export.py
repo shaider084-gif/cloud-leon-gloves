@@ -5,16 +5,19 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill
 
 from . import models
+from .schemas import CANONICAL_FIELDS
 
-FIXED_COLUMNS = [
-    ("article", "Артикул"),
-    ("name", "Название"),
-    ("brand", "Бренд"),
-    ("category", "Категория"),
-    ("unit", "Ед. изм."),
-    ("cost_price", "Закупочная цена"),
+FIXED_COLUMNS = CANONICAL_FIELDS + [
     ("sale_price", "Цена продажи"),
+    ("external_product_id", "ID товара"),
+    ("external_variant_id", "ID варианта"),
+    ("description", "Описание"),
+    ("image_url", "Изображения"),
 ]
+
+# Порядок столбцов "Параметр: X" — как в таблице на сайте: сначала базовый шаблон.
+BASE_PARAM_ORDER = ["Товар", "Размер", "Область применения", "Материал", "Защитные свойства", "Покрытие перчаток",
+                    "Цвет", "Класс вязки", "Утепленные", "Тип"]
 
 HEADER_FILL = PatternFill(start_color="FF92D050", end_color="FF92D050", fill_type="solid")
 
@@ -24,13 +27,12 @@ def export_products_to_xlsx(products: List[models.Product]) -> BytesIO:
     из объединения ключей attributes по всем товарам (аналог структуры
     'Шаблон сиз рук')."""
 
-    attribute_keys: List[str] = []
-    seen = set()
+    used = set()
     for p in products:
-        for key in (p.attributes or {}).keys():
-            if key not in seen:
-                seen.add(key)
-                attribute_keys.append(key)
+        for key, val in (p.attributes or {}).items():
+            if val not in (None, ""):
+                used.add(key)
+    attribute_keys: List[str] = [k for k in BASE_PARAM_ORDER] + sorted(used - set(BASE_PARAM_ORDER))
 
     wb = openpyxl.Workbook()
     ws = wb.active

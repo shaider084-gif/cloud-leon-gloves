@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Сравнение цен{% endblock %}
+{% block container_extra_class %} wide{% endblock %}
+{% block content %}
+<h1>Сравнение цен</h1>
+
+<form method="get" action="/price-compare" class="filters-bar">
+    <label>Бренд
+        <select name="brand" onchange="this.form.submit()">
+            <option value="">Все бренды</option>
+            {% for b, c in all_brands %}
+            <option value="{{ b }}" {% if b == selected_brand %}selected{% endif %}>{{ b }} ({{ c }})</option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>Параметр: {{ tovar_key }}
+        <select name="tovar" onchange="this.form.submit()">
+            <option value="">Все</option>
+            {% for t, c in all_tovar_types %}
+            <option value="{{ t }}" {% if t == selected_tovar %}selected{% endif %}>{{ t }} ({{ c }})</option>
+            {% endfor %}
+        </select>
+    </label>
+    <label class="checkbox-label">
+        <input type="checkbox" name="filled" value="1" {% if filled %}checked{% endif %} onchange="this.form.submit()">
+        Показать заполненные
+    </label>
+    {% if selected_brand or selected_tovar or filled %}
+    <a href="/price-compare" class="reset-filters">Сбросить фильтры</a>
+    {% endif %}
+</form>
+
+<h2>{{ total_count }} товаров {% if total_pages > 1 %}— страница {{ page }} из {{ total_pages }}{% endif %}</h2>
+
+{% macro page_link(p) -%}
+/price-compare?page={{ p }}{% if selected_brand %}&brand={{ selected_brand|urlencode }}{% endif %}{% if selected_tovar %}&tovar={{ selected_tovar|urlencode }}{% endif %}{% if filled %}&filled=1{% endif %}
+{%- endmacro %}
+
+{% macro pager() %}
+{% if total_pages > 1 %}
+<p class="pagination">
+    {% if page > 1 %}<a href="{{ page_link(page - 1) }}">← Предыдущая</a>{% endif %}
+    <span class="hint">Страница {{ page }} из {{ total_pages }} (по {{ page_size }} товаров)</span>
+    {% if page < total_pages %}<a href="{{ page_link(page + 1) }}">Следующая →</a>{% endif %}
+</p>
+{% endif %}
+{% endmacro %}
+
+{{ pager() }}
+
+{% if products %}
+<div class="table-scroll">
+<table class="list">
+    <thead>
+        <tr>
+            <th>Артикул</th>
+            <th>Название</th>
+            <th>Бренд</th>
+            <th>Цена продажи</th>
+            <th>Рыночная цена 1</th>
+            <th>Рыночная цена 2</th>
+            <th>Параметр: {{ tovar_key }}</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in products %}
+        {% set m = market.get(p.article) %}
+        {% set cmp = "" %}
+        {% if m and m.price1 is not none and p.sale_price is not none %}
+            {% if p.sale_price < m.price1 %}{% set cmp = "price-lower" %}{% elif p.sale_price > m.price1 %}{% set cmp = "price-higher" %}{% endif %}
+        {% endif %}
+        <tr class="{{ cmp }}">
+            <td>{{ p.article or "" }}</td>
+            <td>{{ p.name or "" }}</td>
+            <td>{{ p.brand or "" }}</td>
+            <td>{{ p.sale_price if p.sale_price is not none else "" }}</td>
+            <td{% if m and m.url1 and is_own(m.url1) %} class="own-site"{% endif %}>{% if m and m.price1 is not none %}{{ m.price1 }}{% if is_suspicious is defined and is_suspicious(m.price1, p.sale_price) %} <span class="price-warn" title="Цена меньше 30% нашей — проверьте по ссылке">!</span>{% endif %}{% if m.url1 %}<br><a href="{{ m.url1 }}" target="_blank" rel="noopener noreferrer">{{ domain_of(m.url1) }}</a>{% endif %}{% endif %}</td>
+            <td{% if m and m.url2 and is_own(m.url2) %} class="own-site"{% endif %}>{% if m and m.price2 is not none %}{{ m.price2 }}{% if is_suspicious is defined and is_suspicious(m.price2, p.sale_price) %} <span class="price-warn" title="Цена меньше 30% нашей — проверьте по ссылке">!</span>{% endif %}{% if m.url2 %}<br><a href="{{ m.url2 }}" target="_blank" rel="noopener noreferrer">{{ domain_of(m.url2) }}</a>{% endif %}{% endif %}</td>
+            <td>{{ (p.attributes or {}).get(tovar_key, "") }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{{ pager() }}
+{% else %}
+<p class="hint">Товаров пока нет.</p>
+{% endif %}
+{% endblock %}

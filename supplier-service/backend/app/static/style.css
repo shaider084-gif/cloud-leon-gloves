@@ -18,6 +18,7 @@ body {
 .topbar nav a:hover { color: white; }
 .topbar .user { color: #9ca3af; margin-right: 8px; }
 .container { max-width: 960px; margin: 32px auto; padding: 0 16px; }
+.container.wide { max-width: none; }
 h1 { margin-bottom: 16px; }
 .card {
     background: white;
@@ -28,7 +29,8 @@ h1 { margin-bottom: 16px; }
 }
 .card.narrow { max-width: 480px; }
 form label { display: block; margin-bottom: 14px; font-size: 14px; color: #374151; }
-form input[type=text], form input[type=password], form input[type=file] {
+form input[type=text], form input[type=password], form input[type=file],
+table.list select, table.list input[type=text] {
     display: block;
     width: 100%;
     padding: 8px 10px;
@@ -57,3 +59,87 @@ table.list th { background: #f3f4f6; }
 .warn-box { background: #fef3c7; border: 1px solid #f59e0b; padding: 12px 16px; border-radius: 6px; }
 .hint { font-size: 13px; color: #6b7280; }
 code.slug { font-size: 13px; background: #f3f4f6; padding: 2px 8px; border-radius: 4px; color: #6b7280; }
+.table-scroll { overflow-x: auto; }
+.sticky-hscroll {
+    display: none;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 16px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    background: #f3f4f6;
+    border-top: 1px solid #d1d5db;
+    z-index: 50;
+}
+.sticky-hscroll-inner { height: 1px; }
+.filters-bar {
+    display: flex;
+    align-items: flex-end;
+    gap: 20px;
+    background: white;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 20px 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.filters-bar label { font-size: 13px; color: #374151; }
+.filters-bar select {
+    display: block;
+    margin-top: 4px;
+    padding: 8px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    min-width: 220px;
+}
+.filters-bar .reset-filters { font-size: 13px; }
+.pagination { display: flex; align-items: center; gap: 16px; margin: 12px 0; }
+.desc-toggle {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 8px;
+    font-size: 12px;
+    background: #eef2ff;
+    color: #2563eb;
+    border: 1px solid #c7d2fe;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.desc-toggle:hover { background: #e0e7ff; }
+.desc-full {
+    display: block;
+    margin-top: 4px;
+    white-space: pre-wrap;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 12px;
+    color: #374151;
+}
+.desc-full[hidden] { display: none; }
+tr.row-matched { background: #f0fdf4; }
+tr.row-matched:hover { background: #dcfce7; }
+tr.row-matched td:first-child { box-shadow: inset 3px 0 0 #16a34a; }
+tr.row-unmatched { background: #fef2f2; }
+tr.row-unmatched:hover { background: #fee2e2; }
+tr.row-unmatched td:first-child { box-shadow: inset 3px 0 0 #dc2626; }
+.match-legend { display: flex; align-items: center; gap: 6px; margin: 4px 0 16px; }
+.legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 2px; vertical-align: -1px; }
+.legend-green { background: #16a34a; }
+.legend-red { background: #dc2626; }
+
+.btn-export { display: inline-block; background: #16a34a; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 14px; }
+.btn-export:hover { background: #15803d; }
+
+/* Вкладка "Сравнение цен": наша цена ниже/выше минимальной рыночной; наш сайт в ценах */
+tr.price-lower { background: #f0fdf4; }
+tr.price-lower:hover { background: #dcfce7; }
+tr.price-higher { background: #fef2f2; }
+tr.price-higher:hover { background: #fee2e2; }
+td.own-site { background: #ede9fe; box-shadow: inset 3px 0 0 #7c3aed; }
+
+.thumbs { display: grid; grid-template-columns: repeat(2, 48px); gap: 4px; }
+.thumbs img { display: block; width: 48px; height: 48px; object-fit: cover; border: 1px solid #e5e7eb; border-radius: 4px; background: #f3f4f6; }
+.thumbs a:hover img { border-color: #2563eb; }
+.thumb-more { display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; border: 1px dashed #9ca3af; border-radius: 4px; font-size: 12px; color: #6b7280; }
+td .price-warn { color: #dc2626; font-weight: 700; cursor: help; }

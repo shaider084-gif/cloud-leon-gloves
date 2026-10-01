@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Настройка колонок — {{ supplier.name }}{% endblock %}
+{% block content %}
+<p><a href="/suppliers/{{ supplier.id }}">← {{ supplier.name }}</a></p>
+<h1>Настройка колонок файла</h1>
+<p class="hint">
+    Файл: <code>{{ original }}</code>. Укажите, что означает каждая колонка — один раз,
+    дальше при загрузке новых прайсов этого поставщика колонки будут распознаваться
+    автоматически (без этого шага).
+</p>
+
+<form method="post" action="/suppliers/{{ supplier.id }}/map">
+    <input type="hidden" name="tmp" value="{{ tmp }}">
+    <input type="hidden" name="original" value="{{ original }}">
+
+    <div class="card narrow">
+        <label>Наценка, % (закупочная цена → цена продажи)
+            <input type="text" inputmode="decimal" name="markup_percent" value="{{ default_markup }}">
+        </label>
+    </div>
+
+    <table class="list">
+        <thead>
+            <tr>
+                <th>Колонка в файле</th>
+                <th>Что это</th>
+                <th>Имя параметра (если "Свой параметр")</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for idx, header in headers %}
+            <tr>
+                <td>
+                    <code>{{ header if header else "(пусто)" }}</code>
+                    <input type="hidden" name="header_{{ idx }}" value="{{ header }}">
+                </td>
+                <td>
+                    <select name="target_{{ idx }}">
+                        <option value="__ignore__">— игнорировать —</option>
+                        {% for field, label in canonical_fields %}
+                        <option value="{{ field }}">{{ label }}</option>
+                        {% endfor %}
+                        <option value="attr">Свой параметр (атрибут)…</option>
+                    </select>
+                </td>
+                <td>
+                    <input type="text" name="attr_name_{{ idx }}" placeholder="например, Цвет">
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="card narrow">
+        <button type="submit">Сохранить настройку и обработать файл</button>
+    </div>
+</form>
+{% endblock %}

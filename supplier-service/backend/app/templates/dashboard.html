@@ -5,7 +5,7 @@
 
 <table class="list">
     <thead>
-        <tr><th>Название</th><th>Slug (код парсера)</th><th>Парсер</th><th></th></tr>
+        <tr><th>Название</th><th>Slug</th><th>Обработка файлов</th><th></th></tr>
     </thead>
     <tbody>
         {% for s in suppliers %}
@@ -14,9 +14,11 @@
             <td><code>{{ s.slug }}</code></td>
             <td>
                 {% if s.slug in available_parsers %}
-                    <span class="ok">есть</span>
+                    <span class="ok">кастомный парсер</span>
+                {% elif s.column_mapping %}
+                    <span class="ok">настроен маппинг</span>
                 {% else %}
-                    <span class="warn">не написан</span>
+                    <span class="warn">нужна настройка при первой загрузке</span>
                 {% endif %}
             </td>
             <td><a href="/suppliers/{{ s.id }}">Открыть →</a></td>
@@ -33,16 +35,17 @@
         <label>Название
             <input type="text" name="name" placeholder="Например: ЛЕОН" required>
         </label>
-        <label>Slug (латиницей, без пробелов — будет использоваться в коде парсера)
+        <label>Slug (латиницей, без пробелов)
             <input type="text" name="slug" placeholder="leon" pattern="[a-z0-9_\-]+" required>
         </label>
         <button type="submit">Добавить</button>
     </form>
     <p class="hint">
-        После добавления поставщика для него нужно написать парсер-файл
-        <code>app/parsers/&lt;slug&gt;.py</code> и зарегистрировать его в
-        <code>app/parsers/registry.py</code> — это делается через Claude Code.
-        Пока парсера нет, загрузка файлов для этого поставщика будет выдавать ошибку.
+        При первой загрузке прайса сервис сам предложит указать, какая колонка что
+        означает — код писать не нужно. Настройка запомнится, и следующие прайсы
+        этого же поставщика будут распознаваться автоматически. Только для файлов
+        со сложной структурой (несколько товаров на строку, объединённые ячейки и т.п.)
+        потребуется отдельный парсер-файл — это делается через Claude Code.
     </p>
 </div>
 {% endblock %}

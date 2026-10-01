@@ -1,16 +1,31 @@
 {% extends "base.html" %}
+{% import "_macros.html" as macros %}
 {% block title %}{{ supplier.name }}{% endblock %}
+{% block container_extra_class %} wide{% endblock %}
 {% block content %}
 <p><a href="/">← Все поставщики</a></p>
 <h1>{{ supplier.name }} <code class="slug">{{ supplier.slug }}</code></h1>
 
-{% if not parser_available %}
+{% if not has_custom_parser and not has_mapping %}
 <p class="warn-box">
-    Для этого поставщика ещё не написан парсер — загрузка файла не сработает,
-    пока не добавите <code>app/parsers/{{ supplier.slug }}.py</code>.
+    Это первая загрузка для этого поставщика — после отправки файла сервис
+    попросит указать, какая колонка что означает. Настройка запомнится
+    автоматически для следующих загрузок.
 </p>
+{% elif has_mapping %}
+<p class="hint">Колонки настроены — новые прайсы этого поставщика сверяются с текущим каталогом (вкладка «Обновление цен»).</p>
 {% endif %}
 
+{% if has_mapping or has_custom_parser %}
+<div class="card narrow">
+    <h2>Обновление цен</h2>
+    <p class="hint">Новый прайс будет сверен с текущим каталогом по Артикулу — вы увидите, что изменилось, прежде чем сохранить.</p>
+    <form method="post" action="/suppliers/{{ supplier.id }}/price-update/preview" enctype="multipart/form-data">
+        <input type="file" name="file" required>
+        <button type="submit">Загрузить и сравнить</button>
+    </form>
+</div>
+{% else %}
 <div class="card narrow">
     <h2>Загрузить новый прайс</h2>
     <form method="post" action="/suppliers/{{ supplier.id }}/upload" enctype="multipart/form-data">
@@ -18,6 +33,7 @@
         <button type="submit">Загрузить и обработать</button>
     </form>
 </div>
+{% endif %}
 
 <h2>История загрузок</h2>
 <table class="list">
@@ -45,4 +61,113 @@
         {% endfor %}
     </tbody>
 </table>
+
+{% if all_tovar_types %}
+<form method="get" action="/suppliers/{{ supplier.id }}" class="filters-bar">
+    <label>Вид продукции
+        <select name="tovar" onchange="this.form.submit()">
+            <option value="">Все виды</option>
+            {% for t, c in all_tovar_types %}
+            <option value="{{ t }}" {% if t == selected_tovar %}selected{% endif %}>{{ t }} ({{ c }})</option>
+            {% endfor %}
+        </select>
+    </label>
+    {% if selected_tovar %}
+    <a href="/suppliers/{{ supplier.id }}" class="reset-filters">Сбросить фильтр</a>
+    {% endif %}
+</form>
+{% endif %}
+
+<h2>Текущий каталог ({{ products|length }} товаров)</h2>
+{% if products %}
+<p><a class="btn-export" href="/suppliers/{{ supplier.id }}/export{% if selected_tovar %}?tovar={{ selected_tovar|urlencode }}{% endif %}">⬇ Скачать в Excel{% if selected_tovar %} (только «{{ selected_tovar }}»){% else %} (весь каталог){% endif %}</a></p>
+{% endif %}
+{% if products and show_match_highlight %}
+<p class="hint match-legend">
+    <span class="legend-dot legend-green"></span> уже был в старом каталоге ({{ matched_count }})
+    &nbsp;&nbsp;
+    <span class="legend-dot legend-red"></span> новая позиция, в старом каталоге не было ({{ products|length - matched_count }})
+</p>
+{% endif %}
+{% if products %}
+<div class="table-scroll" id="catalog-scroll">
+<table class="list">
+    <thead>
+        <tr>
+            <th>Артикул</th>
+            <th>Название</th>
+            <th>Категория</th>
+            <th>Бренд</th>
+            <th>Ед.</th>
+            <th>Закупка</th>
+            <th>Продажа</th>
+            <th>Размеры</th>
+            <th>ID товара</th>
+            <th>ID варианта</th>
+            <th>Описание</th>
+            <th>Изображения</th>
+            {% for key in param_keys %}
+            <th>Параметр: {{ key }}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in products %}
+        <tr class="{% if show_match_highlight %}{% if p.article and p.article in reference_articles %}row-matched{% else %}row-unmatched{% endif %}{% endif %}">
+            <td>{{ p.article or "" }}</td>
+            <td>{{ p.name }}</td>
+            <td>{{ p.category or "" }}</td>
+            <td>{{ p.brand or "" }}</td>
+            <td>{{ p.unit or "" }}</td>
+            <td>{{ p.cost_price if p.cost_price is not none else "" }}</td>
+            <td>{{ p.sale_price if p.sale_price is not none else "" }}</td>
+            <td>{{ (p.attributes or {}).get("Размер", "") }}</td>
+            <td>{{ p.external_product_id or "" }}</td>
+            <td>{{ p.external_variant_id or "" }}</td>
+            <td>{{ macros.desc_cell(p.description) }}</td>
+            <td>{{ macros.image_cell(p.image_url) }}</td>
+            {% for key in param_keys %}
+            <td>{{ (p.attributes or {}).get(key, "") }}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+<div class="sticky-hscroll" id="catalog-hscroll">
+    <div class="sticky-hscroll-inner" id="catalog-hscroll-inner"></div>
+</div>
+<script>
+(function () {
+    var scrollArea = document.getElementById("catalog-scroll");
+    var table = scrollArea ? scrollArea.querySelector("table") : null;
+    var hscroll = document.getElementById("catalog-hscroll");
+    var hscrollInner = document.getElementById("catalog-hscroll-inner");
+    if (!scrollArea || !table || !hscroll || !hscrollInner) return;
+
+    var syncing = false;
+
+    function syncWidth() {
+        hscrollInner.style.width = table.scrollWidth + "px";
+        hscroll.style.display = table.scrollWidth > scrollArea.clientWidth ? "block" : "none";
+    }
+
+    scrollArea.addEventListener("scroll", function () {
+        if (syncing) return;
+        syncing = true;
+        hscroll.scrollLeft = scrollArea.scrollLeft;
+        syncing = false;
+    });
+    hscroll.addEventListener("scroll", function () {
+        if (syncing) return;
+        syncing = true;
+        scrollArea.scrollLeft = hscroll.scrollLeft;
+        syncing = false;
+    });
+
+    window.addEventListener("resize", syncWidth);
+    syncWidth();
+})();
+</script>
+{% endif %}
 {% endblock %}

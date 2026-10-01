@@ -25,6 +25,10 @@ services:
       SECRET_KEY: ${SECRET_KEY}
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      # Для вкладки "Сравнение цен" (поиск рыночных цен через XMLRiver) — необязательные,
+      # без них просто не будет находить рыночные цены.
+      XMLRIVER_USER: ${XMLRIVER_USER:-}
+      XMLRIVER_KEY: ${XMLRIVER_KEY:-}
     ports:
       - "127.0.0.1:8000:8000"
     volumes:

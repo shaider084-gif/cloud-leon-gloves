@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Предпросмотр обновления — {{ supplier.name }}{% endblock %}
+{% block content %}
+<p><a href="/suppliers/{{ supplier.id }}">← {{ supplier.name }}</a></p>
+<h1>Предпросмотр обновления цен</h1>
+<p class="hint">
+    Файл <code>{{ original }}</code> сверен с текущим каталогом поставщика по Артикулу.
+    Ничего ещё не сохранено — нажмите «Применить», чтобы записать это как новую загрузку.
+</p>
+
+<div class="card narrow">
+    <p><span class="ok">🟢 Совпало по артикулу: {{ counts.matched }}</span></p>
+    <p><span class="error">🔴 Новых (не было в каталоге): {{ counts.new }}</span></p>
+    <p><span class="warn">🟠 Пропало (было в каталоге, нет в новом прайсе): {{ counts.missing }}</span></p>
+</div>
+
+<form method="post" action="/suppliers/{{ supplier.id }}/price-update/apply">
+    <input type="hidden" name="tmp" value="{{ tmp }}">
+    <input type="hidden" name="original" value="{{ original }}">
+    <div class="card narrow">
+        <button type="submit">Применить обновление</button>
+    </div>
+</form>
+
+{% set changed = [] %}
+{% for current_p, new_p in diff.matched %}
+    {% if current_p.cost_price != new_p.cost_price %}{% set _ = changed.append((current_p, new_p)) %}{% endif %}
+{% endfor %}
+
+{% if changed %}
+<h2>🟢 Изменилась закупочная цена ({{ changed|length }} из {{ counts.matched }})</h2>
+<table class="list">
+    <thead>
+        <tr><th>Артикул</th><th>Название</th><th>Было</th><th>Стало</th></tr>
+    </thead>
+    <tbody>
+        {% for current_p, new_p in changed %}
+        <tr>
+            <td>{{ current_p.article }}</td>
+            <td>{{ new_p.name }}</td>
+            <td>{{ current_p.cost_price }}</td>
+            <td>{{ new_p.cost_price }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% elif counts.matched %}
+<p class="hint">Совпавшие товары ({{ counts.matched }}) — цены без изменений.</p>
+{% endif %}
+
+{% if diff.new_items or diff.no_article %}
+<h2>🔴 Новые товары</h2>
+<table class="list">
+    <thead>
+        <tr><th>Артикул</th><th>Название</th><th>Закупочная цена</th></tr>
+    </thead>
+    <tbody>
+        {% for p in diff.new_items %}
+        <tr><td>{{ p.article }}</td><td>{{ p.name }}</td><td>{{ p.cost_price }}</td></tr>
+        {% endfor %}
+        {% for p in diff.no_article %}
+        <tr><td>—</td><td>{{ p.name }}</td><td>{{ p.cost_price }}</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+{% if diff.missing_items %}
+<h2>🟠 Пропали из нового прайса</h2>
+<table class="list">
+    <thead>
+        <tr><th>Артикул</th><th>Название</th></tr>
+    </thead>
+    <tbody>
+        {% for p in diff.missing_items %}
+        <tr><td>{{ p.article }}</td><td>{{ p.name }}</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endblock %}

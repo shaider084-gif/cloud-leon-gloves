@@ -1,0 +1,23 @@
+{% macro desc_cell(text, limit=60) %}
+{%- set raw = text or "" -%}
+{%- set plain = raw|strip_html -%}
+{%- if plain|length > limit -%}
+<span class="desc-short">{{ plain[:limit] }}…</span><span class="desc-full" hidden>{{ raw }}</span> <button type="button" class="desc-toggle">Показать</button>
+{%- else -%}
+{{ plain }}
+{%- endif -%}
+{% endmacro %}
+
+{% macro image_cell(urls, limit=4) %}
+{%- set items = (urls or "").split() -%}
+{%- if items -%}
+<div class="thumbs">
+{%- for u in items[:limit] %}
+<a href="{{ u }}" target="_blank" rel="noopener"><img src="{{ u }}" alt="" loading="lazy" referrerpolicy="no-referrer"></a>
+{%- endfor %}
+{%- if items|length > limit %}
+<span class="thumb-more">+{{ items|length - limit }}</span>
+{%- endif %}
+</div>
+{%- endif -%}
+{% endmacro %}

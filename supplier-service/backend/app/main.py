@@ -2,12 +2,13 @@ import os
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 
 from .database import Base, engine, SessionLocal
 from .config import settings
 from .security import hash_password
 from . import models
-from .routers import auth, suppliers, users
+from .routers import auth, suppliers, users, price_updates, catalog_view, price_compare
 
 app = FastAPI(title="Сервис управления поставщиками и прайс-листами")
 
@@ -16,12 +17,60 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 app.include_router(auth.router)
 app.include_router(suppliers.router)
+app.include_router(price_updates.router)
+app.include_router(catalog_view.router)
+app.include_router(price_compare.router)
 app.include_router(users.router)
+
+
+def _lightweight_migrate():
+    """Проект без Alembic (осознанное упрощение для внутреннего инструмента) —
+    Base.metadata.create_all создаёт только отсутствующие таблицы, но не новые
+    колонки в уже существующих. Для пары простых ADD COLUMN этого достаточно;
+    если миграций станет больше — переходить на Alembic.
+    Синтаксис ALTER TABLE ... ADD COLUMN IF NOT EXISTS специфичен для Postgres.
+    На SQLite (локальный запуск без Docker, см. README) для новой БД create_all
+    и так создаёт таблицы сразу с актуальными колонками — но у уже существующей
+    локальной БД (local_dev.db с накопленными тестовыми данными) их всё равно
+    нужно добавлять точечно, поэтому там используем ADD COLUMN с try/except
+    вместо IF NOT EXISTS (SQLite его не поддерживает)."""
+    is_postgres = engine.dialect.name == "postgresql"
+
+    if is_postgres:
+        with engine.begin() as conn:
+            conn.execute(text(
+                "ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS column_mapping JSONB"
+            ))
+            conn.execute(text(
+                "ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS markup_percent NUMERIC(5,2) DEFAULT 30"
+            ))
+            conn.execute(text(
+                "ALTER TABLE products ADD COLUMN IF NOT EXISTS external_product_id VARCHAR(255)"
+            ))
+            conn.execute(text(
+                "ALTER TABLE products ADD COLUMN IF NOT EXISTS external_variant_id VARCHAR(255)"
+            ))
+            conn.execute(text(
+                "ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT"
+            ))
+        return
+
+    for stmt in (
+        "ALTER TABLE products ADD COLUMN external_product_id VARCHAR(255)",
+        "ALTER TABLE products ADD COLUMN external_variant_id VARCHAR(255)",
+        "ALTER TABLE products ADD COLUMN description TEXT",
+    ):
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(stmt))
+        except Exception:
+            pass  # колонка уже существует — повторный запуск на той же локальной БД
 
 
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
+    _lightweight_migrate()
 
     db = SessionLocal()
     try:

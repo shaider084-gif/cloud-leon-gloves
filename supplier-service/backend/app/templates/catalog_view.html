@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% import "_macros.html" as macros %}
+{% block title %}Весь каталог{% endblock %}
+{% block container_extra_class %} wide{% endblock %}
+{% block content %}
+<p><a href="/">← Поставщики</a></p>
+<h1>Весь каталог</h1>
+
+<form method="get" action="/catalog" class="filters-bar">
+    <label>Бренд
+        <select name="brand" onchange="this.form.submit()">
+            <option value="">Все бренды</option>
+            {% for b in all_brands %}
+            <option value="{{ b }}" {% if b == selected_brand %}selected{% endif %}>{{ b }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>Вид продукции
+        <select name="tovar" onchange="this.form.submit()">
+            <option value="">Все виды</option>
+            {% for t, c in all_tovar_types %}
+            <option value="{{ t }}" {% if t == selected_tovar %}selected{% endif %}>{{ t }} ({{ c }})</option>
+            {% endfor %}
+        </select>
+    </label>
+    {% if selected_brand or selected_tovar %}
+    <a href="/catalog" class="reset-filters">Сбросить фильтры</a>
+    {% endif %}
+</form>
+
+<h2>{{ total_count }} товаров {% if total_pages > 1 %}— страница {{ page }} из {{ total_pages }}{% endif %}</h2>
+<p class="hint match-legend">
+    <span class="legend-dot legend-green"></span> уже ведётся каким-то поставщиком ({{ matched_count }})
+    &nbsp;&nbsp;
+    <span class="legend-dot legend-red"></span> пока ни у кого не в работе ({{ unmatched_count }})
+</p>
+
+{% macro page_link(p) -%}
+/catalog?page={{ p }}{% if selected_brand %}&brand={{ selected_brand|urlencode }}{% endif %}{% if selected_tovar %}&tovar={{ selected_tovar|urlencode }}{% endif %}
+{%- endmacro %}
+
+{% if total_pages > 1 %}
+<p class="pagination">
+    {% if page > 1 %}<a href="{{ page_link(page - 1) }}">← Предыдущая</a>{% endif %}
+    <span class="hint">Страница {{ page }} из {{ total_pages }} (по {{ page_size }} товаров)</span>
+    {% if page < total_pages %}<a href="{{ page_link(page + 1) }}">Следующая →</a>{% endif %}
+</p>
+{% endif %}
+
+{% if products %}
+<div class="table-scroll" id="catalog-scroll">
+<table class="list">
+    <thead>
+        <tr>
+            {% for key, label in core_columns %}
+            <th>{{ label }}</th>
+            {% endfor %}
+            {% for key in param_keys %}
+            <th>Параметр: {{ key }}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in products %}
+        <tr class="{% if p.article and p.article in active_supplier_articles %}row-matched{% else %}row-unmatched{% endif %}">
+            {% for key, label in core_columns %}
+            <td>
+                {% if key == "description" %}
+                {{ macros.desc_cell(getattr(p, key)) }}
+                {% elif key == "image_url" %}
+                {{ macros.image_cell(getattr(p, key)) }}
+                {% else %}
+                {{ getattr(p, key) if getattr(p, key) is not none else "" }}
+                {% endif %}
+            </td>
+            {% endfor %}
+            {% for key in param_keys %}
+            <td>{{ (p.attributes or {}).get(key, "") }}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+<div class="sticky-hscroll" id="catalog-hscroll">
+    <div class="sticky-hscroll-inner" id="catalog-hscroll-inner"></div>
+</div>
+<script>
+(function () {
+    var scrollArea = document.getElementById("catalog-scroll");
+    var table = scrollArea ? scrollArea.querySelector("table") : null;
+    var hscroll = document.getElementById("catalog-hscroll");
+    var hscrollInner = document.getElementById("catalog-hscroll-inner");
+    if (!scrollArea || !table || !hscroll || !hscrollInner) return;
+
+    var syncing = false;
+
+    function syncWidth() {
+        hscrollInner.style.width = table.scrollWidth + "px";
+        hscroll.style.display = table.scrollWidth > scrollArea.clientWidth ? "block" : "none";
+    }
+
+    scrollArea.addEventListener("scroll", function () {
+        if (syncing) return;
+        syncing = true;
+        hscroll.scrollLeft = scrollArea.scrollLeft;
+        syncing = false;
+    });
+    hscroll.addEventListener("scroll", function () {
+        if (syncing) return;
+        syncing = true;
+        scrollArea.scrollLeft = hscroll.scrollLeft;
+        syncing = false;
+    });
+
+    window.addEventListener("resize", syncWidth);
+    syncWidth();
+})();
+</script>
+
+{% if total_pages > 1 %}
+<p class="pagination">
+    {% if page > 1 %}<a href="{{ page_link(page - 1) }}">← Предыдущая</a>{% endif %}
+    <span class="hint">Страница {{ page }} из {{ total_pages }}</span>
+    {% if page < total_pages %}<a href="{{ page_link(page + 1) }}">Следующая →</a>{% endif %}
+</p>
+{% endif %}
+{% else %}
+<p class="hint">Товаров пока нет.</p>
+{% endif %}
+{% endblock %}

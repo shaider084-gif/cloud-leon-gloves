@@ -1,12 +1,17 @@
 from datetime import datetime
 
 from sqlalchemy import (
-    Column, Integer, String, ForeignKey, DateTime, Numeric, Text
+    Column, Integer, String, ForeignKey, DateTime, Numeric, Text, JSON
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
 from .database import Base
+
+# На проде (Postgres) реально используется JSONB, на SQLite (локальный запуск
+# без Docker, см. README) — обычный JSON. with_variant позволяет одной
+# колонке работать на обоих диалектах без дублирования моделей.
+JSONType = JSON().with_variant(JSONB, "postgresql")
 
 
 class User(Base):
@@ -24,9 +29,18 @@ class Supplier(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False)
-    # slug matches a key in the parser registry (app/parsers/registry.py)
+    # slug matches a key in the parser registry (app/parsers/registry.py) —
+    # only used for suppliers with a hand-written custom parser (complex файлы).
     slug = Column(String(64), unique=True, nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Сохранённая настройка визуального маппинга колонок (для простых файлов —
+    # один заголовок, один товар на строку). Формат:
+    # {"<заголовок_в_файле_lower>": "<канонич.поле или 'attr:Имя' или '__ignore__'>", ...}
+    # Если задано — повторные загрузки этого поставщика используют его автоматически
+    # (сценарий "Обновление цен"), без похода к разработчику за парсером.
+    column_mapping = Column(JSONType, nullable=True)
+    markup_percent = Column(Numeric(5, 2), nullable=True, default=30)
 
     uploads = relationship("Upload", back_populates="supplier", cascade="all, delete-orphan")
 
@@ -63,9 +77,16 @@ class Product(Base):
     sale_price = Column(Numeric(12, 2))  # Цена продажи (с наценкой)
     image_url = Column(String(1000), nullable=True)
 
+    # Поля для будущего наполнения (пока не парсятся ни одним поставщиком) —
+    # заведены заранее по запросу пользователя, чтобы структура каталога уже
+    # была готова принять эти данные.
+    external_product_id = Column(String(255), nullable=True)   # ID товара (во внешней системе)
+    external_variant_id = Column(String(255), nullable=True)   # ID варианта товара
+    description = Column(Text, nullable=True)                  # Описание
+
     # Гибкие параметры товара (Цвет, Размер, Покрытие и т.п.) —
     # разные категории/поставщики имеют разный набор параметров.
-    attributes = Column(JSONB, default=dict)
+    attributes = Column(JSONType, default=dict)
 
     created_at = Column(DateTime, default=datetime.utcnow)
 

@@ -3,21 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <title>{% block title %}Сервис поставщиков{% endblock %}</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v={{ static_version() }}">
 </head>
 <body>
     <header class="topbar">
         <a class="brand" href="/">Сервис поставщиков</a>
         {% if user %}
         <nav>
+            <a href="/">Поставщики</a>
+            <a href="/catalog">Весь каталог</a>
+            <a href="/price-compare">Сравнение цен</a>
             <span class="user">{{ user.username }}</span>
             {% if user.is_admin %}<a href="/users">Сотрудники</a>{% endif %}
             <a href="/logout">Выйти</a>
         </nav>
         {% endif %}
     </header>
-    <main class="container">
+    <main class="container{% block container_extra_class %}{% endblock %}">
         {% block content %}{% endblock %}
     </main>
+    <script>
+    document.addEventListener("click", function (e) {
+        if (!e.target.classList.contains("desc-toggle")) return;
+        var cell = e.target.closest("td");
+        if (!cell) return;
+        var short = cell.querySelector(".desc-short");
+        var full = cell.querySelector(".desc-full");
+        if (!short || !full) return;
+        var expanding = full.hasAttribute("hidden");
+        if (expanding) {
+            full.removeAttribute("hidden");
+            short.setAttribute("hidden", "");
+            e.target.textContent = "Скрыть";
+        } else {
+            full.setAttribute("hidden", "");
+            short.removeAttribute("hidden");
+            e.target.textContent = "Показать";
+        }
+    });
+    </script>
 </body>
 </html>

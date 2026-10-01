@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 .env
 supplier-service/.env
+supplier-service/backend/local_dev.db
+supplier-service/backend/local_uploads/

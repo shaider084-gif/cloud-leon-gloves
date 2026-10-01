@@ -1,28 +1,41 @@
 import os
-import uuid
+from collections import Counter
+from urllib.parse import quote
 
-from fastapi import APIRouter, Request, Depends, Form, UploadFile, File
+from fastapi import APIRouter, Request, Depends, Form, UploadFile, File, Query
 from fastapi.responses import RedirectResponse, HTMLResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import get_current_user
 from ..templating import templates
-from ..config import settings
 from ..parsers.registry import get_parser, PARSERS
+from ..parsers.mapping import MappingParser, read_header_row
+from ..schemas import CANONICAL_FIELDS, IGNORE_FIELD, ATTRIBUTE_PREFIX
 from ..export import export_products_to_xlsx
+from ..catalog import get_current_products, get_import_articles, IMPORT_SUPPLIER_SLUG, DEMO_SUPPLIER_SLUG
+from ..upload_utils import (
+    save_upload_error as _save_upload_error,
+    save_products as _save_products,
+    validate_and_save_upload as _validate_and_save_upload,
+    safe_tmp_path as _safe_tmp_path,
+)
 from .. import models
 
 router = APIRouter()
 
-ALLOWED_UPLOAD_EXTENSIONS = {".xlsx", ".xls", ".csv"}
-MAX_UPLOAD_SIZE = 25 * 1024 * 1024  # 25MB — совпадает с client_max_body_size в nginx
+ATTR_TARGET = "attr"  # значение <select>, означающее "свой параметр" (имя — в соседнем поле)
+MAX_ATTR_NAME_LEN = 100
 
 
 def _require_user(request: Request, user):
     if not user:
         return RedirectResponse("/login", status_code=303)
     return None
+
+
+def _canonical_field_keys():
+    return {field for field, _ in CANONICAL_FIELDS}
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -55,10 +68,15 @@ def create_supplier(
     return RedirectResponse("/", status_code=303)
 
 
+TOVAR_ATTR_KEY = "Товар"
+BASE_PARAM_KEYS = ["Товар", "Область применения", "Материал", "Защитные свойства", "Покрытие перчаток", "Цвет", "Класс вязки", "Утепленные", "Тип"]
+
+
 @router.get("/suppliers/{supplier_id}", response_class=HTMLResponse)
 def supplier_detail(
     supplier_id: int,
     request: Request,
+    tovar: str = Query(""),
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -74,7 +92,37 @@ def supplier_detail(
         .order_by(models.Upload.created_at.desc())
         .all()
     )
-    parser = get_parser(supplier.slug)
+    custom_parser = get_parser(supplier.slug)
+    all_products = get_current_products(db, supplier_id)
+
+    # Если у поставщика в прайсе несколько видов продукции (например, у
+    # "Спецзащита" — костюмы, перчатки, краги, ремни...) — даём отфильтровать
+    # таблицу по "Параметр: Товар", как и на вкладке "Весь каталог".
+    tovar_counts = Counter(
+        (p.attributes or {}).get(TOVAR_ATTR_KEY) for p in all_products if (p.attributes or {}).get(TOVAR_ATTR_KEY)
+    )
+    # Сверху — вид продукции с наибольшим числом товаров.
+    all_tovar_types = sorted(tovar_counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    current_products = all_products
+    if tovar:
+        current_products = [p for p in current_products if (p.attributes or {}).get(TOVAR_ATTR_KEY) == tovar]
+
+    # Колонки "Параметр: X": базовый шаблон (показывается всегда, даже пустой)
+    # + любые другие параметры, заполненные хотя бы у одного товара выборки.
+    used_keys = set()
+    for p in current_products:
+        for k, v in (p.attributes or {}).items():
+            if v not in (None, ""):
+                used_keys.add(k)
+    used_keys.discard("Размер")  # у него своя колонка "Размеры"
+    param_keys = list(BASE_PARAM_KEYS) + sorted(used_keys - set(BASE_PARAM_KEYS))
+
+    # Подсветка "уже был в старом каталоге / это новая позиция" не имеет
+    # смысла для самого импортированного каталога и для тестового поставщика.
+    show_match_highlight = supplier.slug not in (IMPORT_SUPPLIER_SLUG, DEMO_SUPPLIER_SLUG)
+    reference_articles = get_import_articles(db) if show_match_highlight else set()
+    matched_count = sum(1 for p in current_products if p.article and p.article in reference_articles)
+
     return templates.TemplateResponse(
         "supplier_detail.html",
         {
@@ -82,8 +130,42 @@ def supplier_detail(
             "user": user,
             "supplier": supplier,
             "uploads": uploads,
-            "parser_available": parser is not None,
+            "has_custom_parser": custom_parser is not None,
+            "has_mapping": bool(supplier.column_mapping),
+            "products": current_products,
+            "show_match_highlight": show_match_highlight,
+            "reference_articles": reference_articles,
+            "matched_count": matched_count,
+            "all_tovar_types": all_tovar_types,
+            "selected_tovar": tovar,
+            "param_keys": param_keys,
         },
+    )
+
+
+@router.get("/suppliers/{supplier_id}/export")
+def export_supplier_catalog(
+    supplier_id: int,
+    request: Request,
+    tovar: str = Query(""),
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    redirect = _require_user(request, user)
+    if redirect:
+        return redirect
+    supplier = db.get(models.Supplier, supplier_id)
+    if not supplier:
+        return RedirectResponse("/", status_code=303)
+    products = get_current_products(db, supplier_id)
+    if tovar:
+        products = [p for p in products if (p.attributes or {}).get(TOVAR_ATTR_KEY) == tovar]
+    buf = export_products_to_xlsx(products)
+    filename = quote(f"{supplier.name} - каталог{' - ' + tovar if tovar else ''}.xlsx".replace('"', ""))
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"},
     )
 
 
@@ -102,88 +184,152 @@ def upload_price_file(
     if not supplier:
         return RedirectResponse("/", status_code=303)
 
-    parser = get_parser(supplier.slug)
-    if not parser:
-        upload = models.Upload(
-            supplier_id=supplier.id,
-            original_filename=file.filename,
-            status="error",
-            error_message=f"Для поставщика '{supplier.slug}' ещё не написан парсер.",
-        )
-        db.add(upload)
-        db.commit()
+    saved = _validate_and_save_upload(db, supplier, file)
+    if saved is None:
+        return RedirectResponse(f"/suppliers/{supplier_id}", status_code=303)
+    tmp_path, original_name = saved
+
+    # 1. Поставщик со сложным файлом — под него написан кастомный Python-парсер.
+    custom_parser = get_parser(supplier.slug)
+    if custom_parser:
+        try:
+            parsed_products = custom_parser.parse(tmp_path)
+            _save_products(db, supplier, original_name, parsed_products)
+        except Exception as exc:  # noqa: BLE001 — показываем ошибку парсинга пользователю
+            db.rollback()
+            _save_upload_error(db, supplier, original_name, str(exc))
+        finally:
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
         return RedirectResponse(f"/suppliers/{supplier_id}", status_code=303)
 
-    # Валидация загружаемого файла: расширение + размер (защита от произвольных
-    # файлов и переполнения диска — см. security-review чеклист).
-    original_name = file.filename or ""
-    extension = os.path.splitext(original_name)[1].lower()
-    if extension not in ALLOWED_UPLOAD_EXTENSIONS:
-        upload = models.Upload(
-            supplier_id=supplier.id,
-            original_filename=original_name,
-            status="error",
-            error_message=f"Недопустимый тип файла: {extension or '(без расширения)'}",
-        )
-        db.add(upload)
-        db.commit()
+    # 2. У поставщика уже сохранён маппинг колонок (не первая загрузка) — это
+    # сценарий 2.2 «Обновление цен» и он должен идти через сверку с текущим
+    # каталогом (вкладка 2 / routers/price_updates.py), а не тихую перезапись.
+    # UI ведёт такого поставщика на форму /price-update/preview напрямую
+    # (см. supplier_detail.html), поэтому сюда этот случай попасть не должен —
+    # но если всё же попал (например, прямой вызов API), не перезаписываем
+    # каталог молча, а отправляем пользователя на сверку.
+    if supplier.column_mapping:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
         return RedirectResponse(f"/suppliers/{supplier_id}", status_code=303)
 
-    raw_bytes = file.file.read(MAX_UPLOAD_SIZE + 1)
-    if len(raw_bytes) > MAX_UPLOAD_SIZE:
-        upload = models.Upload(
-            supplier_id=supplier.id,
-            original_filename=original_name,
-            status="error",
-            error_message="Файл слишком большой (максимум 25MB).",
-        )
-        db.add(upload)
-        db.commit()
+    # 3. Первая загрузка для этого поставщика и без кастомного парсера —
+    # временный файл НЕ удаляем, ведём пользователя на мастер маппинга колонок.
+    tmp_filename = os.path.basename(tmp_path)
+    return RedirectResponse(
+        f"/suppliers/{supplier_id}/map?tmp={tmp_filename}&original={original_name}",
+        status_code=303,
+    )
+
+
+@router.get("/suppliers/{supplier_id}/map", response_class=HTMLResponse)
+def map_columns_form(
+    supplier_id: int,
+    request: Request,
+    tmp: str,
+    original: str = "",
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    redirect = _require_user(request, user)
+    if redirect:
+        return redirect
+    supplier = db.get(models.Supplier, supplier_id)
+    if not supplier:
+        return RedirectResponse("/", status_code=303)
+
+    tmp_path = _safe_tmp_path(tmp)
+    if not os.path.isfile(tmp_path):
         return RedirectResponse(f"/suppliers/{supplier_id}", status_code=303)
-
-    os.makedirs(settings.upload_dir, exist_ok=True)
-    # Имя файла на диске не зависит от исходного (uuid) — исходное имя нигде
-    # не используется как путь, поэтому path traversal через file.filename исключён.
-    tmp_path = os.path.join(settings.upload_dir, f"{uuid.uuid4().hex}{extension}")
-    with open(tmp_path, "wb") as f:
-        f.write(raw_bytes)
-
-    upload = models.Upload(supplier_id=supplier.id, original_filename=file.filename)
 
     try:
-        parsed_products = parser.parse(tmp_path)
-        upload.products_count = len(parsed_products)
-        db.add(upload)
-        db.flush()  # получить upload.id
+        headers = read_header_row(tmp_path)
+    except Exception as exc:  # noqa: BLE001
+        _save_upload_error(db, supplier, original, f"Не удалось прочитать файл: {exc}")
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        return RedirectResponse(f"/suppliers/{supplier_id}", status_code=303)
 
-        for p in parsed_products:
-            db.add(
-                models.Product(
-                    upload_id=upload.id,
-                    supplier_id=supplier.id,
-                    article=p.article,
-                    name=p.name,
-                    brand=p.brand,
-                    category=p.category,
-                    unit=p.unit,
-                    cost_price=p.cost_price,
-                    sale_price=p.sale_price,
-                    image_url=p.image_url,
-                    attributes=p.attributes,
-                )
-            )
-        upload.status = "done"
-        db.commit()
-    except Exception as exc:  # noqa: BLE001 — показываем ошибку парсинга пользователю
+    return templates.TemplateResponse(
+        "map_columns.html",
+        {
+            "request": request,
+            "user": user,
+            "supplier": supplier,
+            "tmp": os.path.basename(tmp_path),
+            "original": original,
+            "headers": list(enumerate(headers)),
+            "canonical_fields": CANONICAL_FIELDS,
+            "default_markup": supplier.markup_percent or 30,
+        },
+    )
+
+
+@router.post("/suppliers/{supplier_id}/map")
+async def map_columns_submit(
+    supplier_id: int,
+    request: Request,
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    redirect = _require_user(request, user)
+    if redirect:
+        return redirect
+    supplier = db.get(models.Supplier, supplier_id)
+    if not supplier:
+        return RedirectResponse("/", status_code=303)
+
+    form = await request.form()
+    tmp = form.get("tmp", "")
+    original = form.get("original", "")
+    markup_raw = form.get("markup_percent", "30")
+
+    tmp_path = _safe_tmp_path(tmp)
+    if not os.path.isfile(tmp_path):
+        return RedirectResponse(f"/suppliers/{supplier_id}", status_code=303)
+
+    try:
+        markup_percent = float(markup_raw)
+    except (TypeError, ValueError):
+        markup_percent = 30.0
+
+    allowed_fields = _canonical_field_keys()
+    column_mapping = {}
+    idx = 0
+    while f"header_{idx}" in form:
+        header_text = str(form.get(f"header_{idx}", "")).strip().lower()
+        target = str(form.get(f"target_{idx}", IGNORE_FIELD))
+        if header_text:
+            if target == ATTR_TARGET:
+                attr_name = str(form.get(f"attr_name_{idx}", "")).strip()[:MAX_ATTR_NAME_LEN]
+                if attr_name:
+                    column_mapping[header_text] = f"{ATTRIBUTE_PREFIX}{attr_name}"
+            elif target in allowed_fields:
+                column_mapping[header_text] = target
+            # иначе (IGNORE_FIELD или неизвестное значение) — колонка игнорируется
+        idx += 1
+
+    supplier.column_mapping = column_mapping
+    supplier.markup_percent = markup_percent
+    db.add(supplier)
+    db.commit()
+    db.refresh(supplier)
+
+    try:
+        parser = MappingParser(supplier.column_mapping, supplier.markup_percent)
+        parsed_products = parser.parse(tmp_path)
+        _save_products(db, supplier, original, parsed_products)
+    except Exception as exc:  # noqa: BLE001
         db.rollback()
-        upload = models.Upload(
-            supplier_id=supplier.id,
-            original_filename=file.filename,
-            status="error",
-            error_message=str(exc),
-        )
-        db.add(upload)
-        db.commit()
+        _save_upload_error(db, supplier, original, str(exc))
     finally:
         try:
             os.remove(tmp_path)
