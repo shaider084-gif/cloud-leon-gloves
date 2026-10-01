@@ -53,6 +53,9 @@ def _lightweight_migrate():
             conn.execute(text(
                 "ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT"
             ))
+            conn.execute(text(
+                "ALTER TABLE products ALTER COLUMN image_url TYPE TEXT"
+            ))
         return
 
     for stmt in (
