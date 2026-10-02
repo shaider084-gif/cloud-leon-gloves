@@ -18,6 +18,14 @@
 описание из ячейки, цена продажи = закупка + 30%); на странице поставщика они
 подсвечиваются красным (подсветка по артикулу уже есть в сервисе).
 Служебные столбцы магазина (URL, мета-теги, «Файл: …») не копируются.
+
+Дополнительно к каждой позиции (jeta_extra.json, ничего из каталога не
+затирается): «Количество в упаковке/коробке» из самого прайса; параметры с
+сайта производителя jetasafety.com (материал, покрытие, манжета, стандарты EN
+и ГОСТ, температуры и т.д.) и «Реестр сертификатов» — ссылки на действующие
+декларации/сертификаты ООО «АВТОГРАФ СЕЙФТИ» в реестре Росаккредитации,
+где артикул прямо перечислен (pub.fsa.gov.ru). Позиции, которых нет в
+документах реестра или на сайте, остаются без этих полей.
 """
 from typing import Dict, List, Optional
 
@@ -31,8 +39,41 @@ from .base import BaseParser
 
 BRAND = "Jeta Safety"
 MARKUP = 1.30  # как у остальных поставщиков (по умолчанию +30%)
-COL_ARTICLE, COL_NAME, COL_UNIT, COL_PRICE_RUB = 1, 2, 3, 9
+COL_ARTICLE, COL_NAME, COL_UNIT, COL_PACK, COL_BOX, COL_PRICE_RUB = 1, 2, 3, 4, 5, 9
 SERVICE_PREFIX = "Файл: "  # ключи служебных столбцов каталога (см. catalog_sync)
+
+
+def _load_extra() -> Dict[str, Dict[str, str]]:
+    """Параметры с jetasafety.com и ссылки реестра сертификатов по артикулам
+    (jeta_extra.json). Собираются отдельным скриптом, парсер только читает."""
+    path = os.path.join(os.path.dirname(__file__), "jeta_extra.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f).get("by_article", {})
+    except (OSError, ValueError):
+        return {}
+
+
+_EXTRA = _load_extra()
+
+
+def _qty(value, unit) -> Optional[str]:
+    """«12» + «пар» -> «12 пар» (количество в упаковке/коробке из прайса)."""
+    try:
+        n = float(str(value).replace(",", "."))
+    except (TypeError, ValueError):
+        return None
+    n_txt = str(int(n)) if n == int(n) else str(n)
+    return f"{n_txt} {unit}" if unit else n_txt
+
+
+def _merge_extra(attributes: Dict[str, str], article: str) -> Dict[str, str]:
+    """Добавляет параметры производителя. Данные из «Весь каталог» не затираются:
+    берём только те ключи, которых нет или которые пусты."""
+    for key, value in _EXTRA.get(article, {}).items():
+        if value and not attributes.get(key):
+            attributes[key] = value
+    return attributes
 
 
 def _load_smaller_to_larger() -> Dict[str, str]:
@@ -127,6 +168,7 @@ class JetaParser(BaseParser):
                     continue
                 if len(row) <= COL_PRICE_RUB:
                     row = tuple(row) + (None,) * (COL_PRICE_RUB + 1 - len(row))
+                unit_txt = _text(row[COL_UNIT])
                 article = _text(row[COL_ARTICLE])
                 cell = _text(row[COL_NAME])
 
@@ -146,8 +188,10 @@ class JetaParser(BaseParser):
                     dict(
                         article=article,
                         group=group,
-                        unit=_text(row[COL_UNIT]) or None,
+                        unit=unit_txt or None,
                         cost=_num(row[COL_PRICE_RUB]),
+                        pack=_qty(row[COL_PACK], unit_txt),
+                        box=_qty(row[COL_BOX], unit_txt),
                     )
                 )
         wb.close()
@@ -159,9 +203,13 @@ class JetaParser(BaseParser):
             article, cost = r["article"], r["cost"]
             cat = catalog.get(article)
             group = r["group"]
+            from_price = {k: v for k, v in (("Количество в упаковке", r["pack"]),
+                                            ("Количество в коробке", r["box"])) if v}
             if cat is not None:
                 attributes = {k: v for k, v in (cat.attributes or {}).items()
                               if not k.startswith(SERVICE_PREFIX)}
+                attributes.update(from_price)
+                _merge_extra(attributes, article)
                 products.append(
                     ProductIn(
                         article=article,
@@ -189,7 +237,7 @@ class JetaParser(BaseParser):
                         cost_price=cost,
                         sale_price=round(cost * MARKUP, 2) if cost is not None else None,
                         description=desc,
-                        attributes={},
+                        attributes=_merge_extra(dict(from_price), article),
                     )
                 )
         return products
