@@ -6,6 +6,61 @@
 <p><a href="/">← Поставщики</a></p>
 <h1>Весь каталог</h1>
 
+<p class="catalog-refresh">
+    <button type="button" id="catalog-refresh-btn">⟳ Обновить</button>
+    <span class="hint" id="catalog-refresh-msg">{% if last_update %}Последнее обновление: {{ last_update }} (МСК){% else %}Каталог ещё не загружен — нажмите «Обновить»{% endif %}</span>
+</p>
+<script>
+(function () {
+    var btn = document.getElementById("catalog-refresh-btn");
+    var msg = document.getElementById("catalog-refresh-msg");
+    var timer = null;
+
+    function poll() {
+        fetch("/catalog/refresh/status", {credentials: "same-origin"})
+            .then(function (r) { return r.json(); })
+            .then(function (s) {
+                if (s.status === "running") {
+                    btn.disabled = true;
+                    msg.textContent = s.message || "Обновляю…";
+                    timer = setTimeout(poll, 1500);
+                } else if (s.status === "done") {
+                    // Статус "done" остаётся в памяти до следующего запуска — перезагружаем
+                    // страницу только если обновление завершилось уже после её открытия.
+                    if (btn.dataset.started === "1") { msg.textContent = s.message; location.reload(); }
+                    else { btn.disabled = false; }
+                } else if (s.status === "error") {
+                    btn.disabled = false;
+                    if (btn.dataset.started === "1") msg.textContent = s.message;
+                } else if (btn.dataset.started === "1") {
+                    // "idle" после нашего запуска: сервер перезапустился и забыл статус.
+                    // Результат уже в базе — перезагружаем, дата последнего обновления покажет итог.
+                    msg.textContent = "Сервер перезапускался, проверяю результат…";
+                    setTimeout(function () { location.reload(); }, 1000);
+                } else {
+                    btn.disabled = false;
+                }
+            })
+            .catch(function () { timer = setTimeout(poll, 3000); });
+    }
+
+    btn.addEventListener("click", function () {
+        btn.disabled = true;
+        btn.dataset.started = "1";
+        msg.textContent = "Запускаю обновление…";
+        fetch("/catalog/refresh", {method: "POST", credentials: "same-origin"})
+            .then(function (r) { if (r.status === 401) location.href = "/login"; else poll(); })
+            .catch(function () { btn.disabled = false; msg.textContent = "Не удалось запустить обновление"; });
+    });
+
+    // Если обновление уже идёт (запущено с другой вкладки/другим человеком) — показываем ход.
+    fetch("/catalog/refresh/status", {credentials: "same-origin"})
+        .then(function (r) { return r.json(); })
+        .then(function (s) { if (s.status === "running") { btn.dataset.started = "1"; poll(); } })
+        .catch(function () {});
+})();
+</script>
+
 <form method="get" action="/catalog" class="filters-bar">
     <label>Бренд
         <select name="brand" onchange="this.form.submit()">
@@ -55,8 +110,8 @@
             {% for key, label in core_columns %}
             <th>{{ label }}</th>
             {% endfor %}
-            {% for key in param_keys %}
-            <th>Параметр: {{ key }}</th>
+            {% for key, label in param_columns %}
+            <th>{{ label }}</th>
             {% endfor %}
         </tr>
     </thead>
@@ -74,8 +129,17 @@
                 {% endif %}
             </td>
             {% endfor %}
-            {% for key in param_keys %}
-            <td>{{ (p.attributes or {}).get(key, "") }}</td>
+            {% for key, label in param_columns %}
+            {% set v = (p.attributes or {}).get(key, "") %}
+            <td>
+                {% if label == "Изображения варианта" %}
+                {{ macros.image_cell(v) }}
+                {% elif not label.startswith("Параметр: ") and v|length > 60 %}
+                {{ macros.desc_cell(v) }}
+                {% else %}
+                {{ v }}
+                {% endif %}
+            </td>
             {% endfor %}
         </tr>
         {% endfor %}
