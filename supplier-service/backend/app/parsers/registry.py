@@ -3,6 +3,7 @@ from typing import Optional
 from .base import BaseParser
 from .demo import DemoParser
 from .gward import GwardParser
+from .jeta import JetaParser
 from .mapping import MappingParser
 from .spetszaschita import SpetszaschitaParser
 from .technoavia import TechnoaviaParser
@@ -13,6 +14,7 @@ from .technoavia import TechnoaviaParser
 PARSERS = {
     "demo": DemoParser,
     "gward": GwardParser,
+    "jeta": JetaParser,
     "pkf_spetczaschita": SpetszaschitaParser,
     "technoavia_spetsobuv": TechnoaviaParser,
 }
