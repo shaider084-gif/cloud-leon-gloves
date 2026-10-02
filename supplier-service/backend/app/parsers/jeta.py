@@ -21,6 +21,9 @@
 """
 from typing import Dict, List, Optional
 
+import json
+import os
+
 import openpyxl
 
 from ..schemas import ProductIn
@@ -30,6 +33,41 @@ BRAND = "Jeta Safety"
 MARKUP = 1.30  # как у остальных поставщиков (по умолчанию +30%)
 COL_ARTICLE, COL_NAME, COL_UNIT, COL_PRICE_RUB = 1, 2, 3, 9
 SERVICE_PREFIX = "Файл: "  # ключи служебных столбцов каталога (см. catalog_sync)
+
+
+def _load_smaller_to_larger() -> Dict[str, str]:
+    path = os.path.join(os.path.dirname(__file__), "jeta_image_dupes.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f).get("smaller_to_larger", {})
+    except (OSError, ValueError):
+        return {}
+
+
+# Мелкие копии тех же фото (сверено по содержимому, см. jeta_image_dupes.json).
+_SMALLER_TO_LARGER = _load_smaller_to_larger()
+
+
+def dedupe_images(image_url: Optional[str]) -> Optional[str]:
+    """Убирает дубли фото в карточке. В выгрузке магазина каждый размер
+    (вариант) загружал свои копии одних и тех же картинок, и в карточке их
+    десятки. Правила: 1) повтор имени файла (21.jpg, 22.jpg …) — оставляем
+    первую; 2) мелкая копия фото, чья крупная версия есть в той же карточке
+    (то же изображение под другим именем) — убираем мелкую. Порядок остальных
+    фото сохраняется."""
+    if not image_url:
+        return image_url
+    seen_names = set()
+    kept: List[str] = []
+    for url in image_url.split():
+        name = url.rsplit("/", 1)[-1].lower()
+        if name in seen_names:
+            continue
+        seen_names.add(name)
+        kept.append(url)
+    kept_set = set(kept)
+    kept = [u for u in kept if _SMALLER_TO_LARGER.get(u) not in kept_set]
+    return " ".join(kept) or None
 
 
 def _text(value) -> str:
@@ -133,7 +171,7 @@ class JetaParser(BaseParser):
                         cost_price=cost,
                         sale_price=float(cat.sale_price) if cat.sale_price is not None else (
                             round(cost * MARKUP, 2) if cost is not None else None),
-                        image_url=cat.image_url,
+                        image_url=dedupe_images(cat.image_url),
                         external_product_id=cat.external_product_id,
                         external_variant_id=cat.external_variant_id,
                         description=cat.description,
