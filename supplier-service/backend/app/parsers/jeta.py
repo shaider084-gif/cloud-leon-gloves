@@ -25,7 +25,9 @@
 и ГОСТ, температуры и т.д.) и «Реестр сертификатов» — ссылки на действующие
 декларации/сертификаты ООО «АВТОГРАФ СЕЙФТИ» в реестре Росаккредитации,
 где артикул прямо перечислен (pub.fsa.gov.ru). Позиции, которых нет в
-документах реестра или на сайте, остаются без этих полей.
+документах реестра или на сайте, остаются без этих полей. У красных позиций
+(нет в «Весь каталог») пока только реестр и данные прайса — остальное
+оставлено пустым по решению пользователя (см. _registry_only).
 """
 from typing import Dict, List, Optional
 
@@ -55,6 +57,19 @@ def _load_extra() -> Dict[str, Dict[str, str]]:
 
 
 _EXTRA = _load_extra()
+
+
+REGISTRY_KEY = "Реестр сертификатов"
+
+
+def _registry_only(attributes: Dict[str, str], article: str) -> Dict[str, str]:
+    """Красные позиции (нет в «Весь каталог»): по решению пользователя пока
+    заполняем только ссылку на реестр сертификатов, остальные параметры
+    производителя для них не добавляем."""
+    link = _EXTRA.get(article, {}).get(REGISTRY_KEY)
+    if link:
+        attributes[REGISTRY_KEY] = link
+    return attributes
 
 
 def _qty(value, unit) -> Optional[str]:
@@ -237,7 +252,7 @@ class JetaParser(BaseParser):
                         cost_price=cost,
                         sale_price=round(cost * MARKUP, 2) if cost is not None else None,
                         description=desc,
-                        attributes=_merge_extra(dict(from_price), article),
+                        attributes=_registry_only(dict(from_price), article),
                     )
                 )
         return products
