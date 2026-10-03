@@ -178,8 +178,8 @@
             <th>ID варианта</th>
             <th>Описание</th>
             <th>Изображения</th>
-            {% for key in param_keys %}
-            <th>Параметр: {{ key }}</th>
+            {% for key, label in param_columns %}
+            <th>{{ label }}</th>
             {% endfor %}
         </tr>
     </thead>
@@ -198,8 +198,17 @@
             <td>{{ p.external_variant_id or "" }}</td>
             <td>{{ macros.desc_cell(p.description) }}</td>
             <td>{{ macros.image_cell(p.image_url) }}</td>
-            {% for key in param_keys %}
-            <td>{{ (p.attributes or {}).get(key, "") }}</td>
+            {% for key, label in param_columns %}
+            {% set v = (p.attributes or {}).get(key, "") %}
+            <td>
+                {% if label == "Изображения варианта" %}
+                {{ macros.image_cell(v) }}
+                {% elif not label.startswith("Параметр: ") and v|length > 60 %}
+                {{ macros.desc_cell(v) }}
+                {% else %}
+                {{ v }}
+                {% endif %}
+            </td>
             {% endfor %}
         </tr>
         {% endfor %}

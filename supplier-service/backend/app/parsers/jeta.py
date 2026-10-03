@@ -446,8 +446,13 @@ class JetaParser(BaseParser):
             if kit:
                 from_price["Комплектация"] = kit
             if cat is not None:
+                # Зелёные (артикул есть в каталоге) получают ВСЕ столбцы своей строки
+                # «Весь каталог», включая служебные («Файл: URL», мета-теги и т.д.).
+                # Позиции, найденные по запасному артикулу (NATRIX без буквы размера),
+                # красные в таблице — служебные столбцы им не копируем.
+                keep_service = article in catalog
                 attributes = {k: v for k, v in (cat.attributes or {}).items()
-                              if not k.startswith(SERVICE_PREFIX)}
+                              if keep_service or not k.startswith(SERVICE_PREFIX)}
                 attributes.update(from_price)
                 _merge_extra(attributes, article)
                 products.append(

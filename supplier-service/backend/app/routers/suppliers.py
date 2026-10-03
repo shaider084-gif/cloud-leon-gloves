@@ -13,6 +13,7 @@ from ..parsers.registry import get_parser, PARSERS
 from ..parsers.mapping import MappingParser, read_header_row
 from ..schemas import CANONICAL_FIELDS, IGNORE_FIELD, ATTRIBUTE_PREFIX
 from ..export import export_products_to_xlsx
+from ..catalog_sync import attr_label, attr_sort_key, is_service_key
 from ..catalog import get_current_products, get_import_articles, IMPORT_SUPPLIER_SLUG, DEMO_SUPPLIER_SLUG
 from ..upload_utils import (
     save_upload_error as _save_upload_error,
@@ -115,7 +116,12 @@ def supplier_detail(
             if v not in (None, ""):
                 used_keys.add(k)
     used_keys.discard("Размер")  # у него своя колонка "Размеры"
-    param_keys = list(BASE_PARAM_KEYS) + sorted(used_keys - set(BASE_PARAM_KEYS))
+    # Служебные столбцы файла магазина («Файл: URL», «Файл: Тег title» …) — в конце,
+    # с подписью без префикса «Параметр:» (как на вкладке «Весь каталог»).
+    service_keys = sorted((k for k in used_keys if is_service_key(k)), key=attr_sort_key)
+    used_keys = {k for k in used_keys if not is_service_key(k)}
+    param_keys = list(BASE_PARAM_KEYS) + sorted(used_keys - set(BASE_PARAM_KEYS)) + service_keys
+    param_columns = [(k, attr_label(k)) for k in param_keys]
 
     # Подсветка "уже был в старом каталоге / это новая позиция" не имеет
     # смысла для самого импортированного каталога и для тестового поставщика.
@@ -139,6 +145,7 @@ def supplier_detail(
             "all_tovar_types": all_tovar_types,
             "selected_tovar": tovar,
             "param_keys": param_keys,
+            "param_columns": param_columns,
             "latest_upload": uploads[0] if uploads else None,
             "previous_upload": uploads[1] if len(uploads) > 1 else None,
         },

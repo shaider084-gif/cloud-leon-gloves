@@ -5,6 +5,7 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill
 
 from . import models
+from .catalog_sync import attr_label, attr_sort_key, is_service_key
 from .schemas import CANONICAL_FIELDS
 
 FIXED_COLUMNS = CANONICAL_FIELDS + [
@@ -32,13 +33,16 @@ def export_products_to_xlsx(products: List[models.Product]) -> BytesIO:
         for key, val in (p.attributes or {}).items():
             if val not in (None, ""):
                 used.add(key)
-    attribute_keys: List[str] = [k for k in BASE_PARAM_ORDER] + sorted(used - set(BASE_PARAM_ORDER))
+    # Служебные столбцы файла магазина («Файл: URL» …) — в конце, с исходным заголовком.
+    service_keys = sorted((k for k in used if is_service_key(k)), key=attr_sort_key)
+    used = {k for k in used if not is_service_key(k)}
+    attribute_keys: List[str] = [k for k in BASE_PARAM_ORDER] + sorted(used - set(BASE_PARAM_ORDER)) + service_keys
 
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Товары"
 
-    headers = [label for _, label in FIXED_COLUMNS] + [f"Параметр: {k}" for k in attribute_keys]
+    headers = [label for _, label in FIXED_COLUMNS] + [attr_label(k) for k in attribute_keys]
     ws.append(headers)
     for cell in ws[1]:
         cell.font = Font(bold=True)
