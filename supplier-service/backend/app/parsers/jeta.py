@@ -73,6 +73,8 @@ _NUM_TO_LETTER = {"05": "XXS", "06": "XS", "07": "S", "08": "M", "09": "L", "10"
 _LETTER_TO_NUM = {"XXS": 5, "XS": 6, "S": 7, "M": 8, "L": 9, "XL": 10, "XXL": 11, "XXXL": 12}
 _SIZE_ORDER = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL", "2XL", "3XL", "4XL", "5XL"]
 _TOVAR_NAME = {"Защитный комбинезон": "Комбинезон"}
+# Цвет модели, заданный пользователем (буква в артикуле цвет сама по себе не определяет)
+_COLOR_BY_MODEL = {"JPC75g": "Серый", "JPC75b": "Синий", "JPC75-BL": "Черный"}
 _TOVAR_USE_MF_NAME = {"Запчасти респиратора", "Запчасти наушники", "Плащ влагозащитный", "Фартук сварщика##Фартук"}
 _GLOVE_TOVARS = {"Перчатки", "Краги", "Нарукавники"}
 # «Товар» для типов производителя, которых нет среди зелёных (ключевое слово в типе/названии)
@@ -98,11 +100,6 @@ def _model(article: str) -> str:
         prev = a
         a = _SIZE_TAIL.sub("", a)
     return a
-
-
-def _site_article(article: str) -> str:
-    """Артикул для сайта: скобки заменяются дефисом («JRG-9011-XL(6)» -> «JRG-9011-XL-6»)."""
-    return re.sub(r"\(([^)]*)\)", r"-\1", article)
 
 
 def _catalog_candidates(article: str) -> List[str]:
@@ -209,8 +206,10 @@ def _build_red(r: dict, catalog: Dict[str, object], records: List[dict], kit: Op
         images = sib.image_url
         if kind == "size":
             product_id = sib.external_product_id
-        else:  # другой цвет: цвет по букве артикула ненадёжен — оставляем пустым
+        else:  # другой цвет: цвет по букве артикула ненадёжен — берём только заданный пользователем
             attrs.pop("Цвет", None)
+            if _COLOR_BY_MODEL.get(_model(article)):
+                attrs["Цвет"] = _COLOR_BY_MODEL[_model(article)]
             old_model, new_model = _model(sib.article), _model(article)
             name = name.replace(old_model, new_model)
             desc = desc.replace(old_model, new_model) if desc else desc
@@ -280,7 +279,7 @@ def _build_red(r: dict, catalog: Dict[str, object], records: List[dict], kit: Op
 
     rec = r["rec"]
     return ProductIn(
-        article=_site_article(article),
+        article=article,  # артикул — ровно как в прайсе (решение пользователя)
         name=name,
         brand=BRAND,
         unit=r["unit"],
@@ -453,7 +452,7 @@ class JetaParser(BaseParser):
                 _merge_extra(attributes, article)
                 products.append(
                     ProductIn(
-                        article=cat.article or article,
+                        article=article,  # как в прайсе, даже если в каталоге он записан иначе
                         name=cat.name,
                         brand=cat.brand or BRAND,
                         unit=r["unit"] or cat.unit,
