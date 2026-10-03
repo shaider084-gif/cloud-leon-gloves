@@ -5,3 +5,6 @@ __pycache__/
 supplier-service/.env
 supplier-service/backend/local_dev.db
 supplier-service/backend/local_uploads/
+
+# Архив чатов — только локально (в диалогах есть пароли)
+Архив чатов/
