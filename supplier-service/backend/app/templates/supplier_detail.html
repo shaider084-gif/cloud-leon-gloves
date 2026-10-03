@@ -83,7 +83,12 @@
     </div>
 </div>
 
-<h2>История загрузок</h2>
+<p><button type="button" id="history-open">🕘 История загрузок ({{ uploads|length }})</button></p>
+<dialog id="history-dialog" class="history-dialog">
+<div class="history-head">
+    <h2>История загрузок</h2>
+    <button type="button" id="history-close" aria-label="Закрыть">✕</button>
+</div>
 <table class="list">
     <thead>
         <tr><th>Дата</th><th>Файл</th><th>Статус</th><th>Товаров</th><th></th></tr>
@@ -109,6 +114,19 @@
         {% endfor %}
     </tbody>
 </table>
+</dialog>
+<script>
+(function () {
+    var dlg = document.getElementById("history-dialog");
+    var openBtn = document.getElementById("history-open");
+    var closeBtn = document.getElementById("history-close");
+    if (!dlg || !openBtn) return;
+    openBtn.addEventListener("click", function () { dlg.showModal(); });
+    closeBtn.addEventListener("click", function () { dlg.close(); });
+    // клик по затемнённому фону закрывает окно
+    dlg.addEventListener("click", function (e) { if (e.target === dlg) dlg.close(); });
+})();
+</script>
 
 {% if all_tovar_types %}
 <form method="get" action="/suppliers/{{ supplier.id }}" class="filters-bar">

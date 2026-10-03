@@ -137,6 +137,12 @@ tr.row-unmatched td:first-child { box-shadow: inset 3px 0 0 #dc2626; }
 .btn-export { display: inline-block; background: #16a34a; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 14px; }
 .btn-export:hover { background: #15803d; }
 .export-buttons .btn-export { margin: 0 8px 6px 0; }
+.history-dialog { width: min(980px, 94vw); max-height: 82vh; padding: 16px 20px; border: none; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,.3); }
+.history-dialog::backdrop { background: rgba(17, 24, 39, .45); }
+.history-dialog .history-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.history-dialog .history-head h2 { margin: 0; }
+.history-dialog .history-head button { background: transparent; color: #374151; font-size: 18px; padding: 4px 10px; }
+.history-dialog .history-head button:hover { background: #e5e7eb; }
 .btn-export-red { background: #dc2626; }
 .btn-export-red:hover { background: #b91c1c; }
 
