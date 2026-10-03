@@ -151,6 +151,7 @@ def export_supplier_catalog(
     request: Request,
     tovar: str = Query(""),
     green: int = Query(0),
+    red: int = Query(0),
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -163,13 +164,14 @@ def export_supplier_catalog(
     products = get_current_products(db, supplier_id)
     if tovar:
         products = [p for p in products if (p.attributes or {}).get(TOVAR_ATTR_KEY) == tovar]
-    if green:
-        # «Зелёные» — товары, артикул которых уже есть в «Весь каталог» (та же
-        # логика, что у подсветки строк на странице поставщика).
+    if green or red:
+        # «Зелёные» — товары, артикул которых уже есть в «Весь каталог», «красные» —
+        # остальные (та же логика, что у подсветки строк на странице поставщика).
         reference_articles = get_import_articles(db)
-        products = [p for p in products if p.article and p.article in reference_articles]
+        in_catalog = lambda p: bool(p.article and p.article in reference_articles)  # noqa: E731
+        products = [p for p in products if in_catalog(p) == bool(green)]
     buf = export_products_to_xlsx(products)
-    suffix = " - ".join(x for x in (tovar, "зелёные" if green else "") if x)
+    suffix = " - ".join(x for x in (tovar, "зелёные" if green else "", "красные" if red and not green else "") if x)
     filename = quote(f"{supplier.name} - каталог{' - ' + suffix if suffix else ''}.xlsx".replace('"', ""))
     return StreamingResponse(
         buf,

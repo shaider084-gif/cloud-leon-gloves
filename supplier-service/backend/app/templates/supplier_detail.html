@@ -132,6 +132,7 @@
     <a class="btn-export" href="/suppliers/{{ supplier.id }}/export{% if selected_tovar %}?tovar={{ selected_tovar|urlencode }}{% endif %}">⬇ Выгрузить всё ({{ products|length }}){% if selected_tovar %} — только «{{ selected_tovar }}»{% endif %}</a>
     {% if show_match_highlight %}
     <a class="btn-export" href="/suppliers/{{ supplier.id }}/export?green=1{% if selected_tovar %}&amp;tovar={{ selected_tovar|urlencode }}{% endif %}">⬇ Выгрузить зелёные ({{ matched_count }}){% if selected_tovar %} — только «{{ selected_tovar }}»{% endif %}</a>
+    <a class="btn-export btn-export-red" href="/suppliers/{{ supplier.id }}/export?red=1{% if selected_tovar %}&amp;tovar={{ selected_tovar|urlencode }}{% endif %}">⬇ Выгрузить красные ({{ products|length - matched_count }}){% if selected_tovar %} — только «{{ selected_tovar }}»{% endif %}</a>
     {% endif %}
 </p>
 {% endif %}
