@@ -128,7 +128,12 @@
 
 <h2>Текущий каталог ({{ products|length }} товаров)</h2>
 {% if products %}
-<p><a class="btn-export" href="/suppliers/{{ supplier.id }}/export{% if selected_tovar %}?tovar={{ selected_tovar|urlencode }}{% endif %}">⬇ Скачать в Excel{% if selected_tovar %} (только «{{ selected_tovar }}»){% else %} (весь каталог){% endif %}</a></p>
+<p class="export-buttons">
+    <a class="btn-export" href="/suppliers/{{ supplier.id }}/export{% if selected_tovar %}?tovar={{ selected_tovar|urlencode }}{% endif %}">⬇ Выгрузить всё ({{ products|length }}){% if selected_tovar %} — только «{{ selected_tovar }}»{% endif %}</a>
+    {% if show_match_highlight %}
+    <a class="btn-export" href="/suppliers/{{ supplier.id }}/export?green=1{% if selected_tovar %}&amp;tovar={{ selected_tovar|urlencode }}{% endif %}">⬇ Выгрузить зелёные ({{ matched_count }}){% if selected_tovar %} — только «{{ selected_tovar }}»{% endif %}</a>
+    {% endif %}
+</p>
 {% endif %}
 {% if products and show_match_highlight %}
 <p class="hint match-legend">
