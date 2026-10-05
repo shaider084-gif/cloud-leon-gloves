@@ -15,7 +15,7 @@
 Единственное добавление — «ID варианта» из таблицы пользователя
 (fest_ids.json: артикул прайса -> ID варианта в магазине).
 Цена из прайса (по артикулу) записывается как закупочная; цена продажи =
-закупка × 1,2 (MARKUP). Встроенные в файл картинки (≈235) не
+закупка × 1,2 (MARKUP) без копеек (отбрасываются, не округляются). Встроенные в файл картинки (≈235) не
 используются; фото, описания, параметры и новые названия — из fest_extra.json
 (донор promza.ru, см. _load_extra).
 """
@@ -163,7 +163,7 @@ class FestParser(BaseParser):
                     brand=BRAND,
                     category=section,
                     cost_price=cost,
-                    sale_price=round(cost * MARKUP, 2) if cost is not None else None,
+                    sale_price=float(int(cost * MARKUP)) if cost is not None else None,  # копейки отрезаются
                     image_url=" ".join(extra["images"]) if extra.get("images") else None,
                     external_variant_id=_VARIANT_IDS.get(article),
                     description=extra.get("description"),
