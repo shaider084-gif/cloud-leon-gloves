@@ -14,8 +14,8 @@
 делается (решение пользователя, 2026-10-05): берутся только данные прайса.
 Единственное добавление — «ID варианта» из таблицы пользователя
 (fest_ids.json: артикул прайса -> ID варианта в магазине).
-Цена из прайса (по артикулу) записывается как закупочная; цена продажи не
-считается — наценка для ФЭСТ не задана. Встроенные в файл картинки (≈235) не
+Цена из прайса (по артикулу) записывается как закупочная; цена продажи =
+закупка × 1,2 (MARKUP). Встроенные в файл картинки (≈235) не
 используются; фото, описания, параметры и новые названия — из fest_extra.json
 (донор promza.ru, см. _load_extra).
 """
@@ -32,6 +32,7 @@ from ..schemas import ProductIn
 from .base import BaseParser
 
 BRAND = "ФЭСТ"
+MARKUP = 1.2  # цена продажи = закупка × 1,2 (решение пользователя, 2026-10-05)
 
 
 def _load_variant_ids() -> Dict[str, str]:
@@ -151,6 +152,7 @@ class FestParser(BaseParser):
                 if len(parts) == 2 and parts[0] and parts[1]:
                     attrs["Объем коробки, м3"] = parts[0]
                     attrs["Вес коробки, кг"] = parts[1]
+            cost = _num(row[COL_PRICE])
             extra = _EXTRA.get(article) or {}
             if extra.get("attributes"):
                 attrs = {**extra["attributes"], **attrs}
@@ -160,8 +162,8 @@ class FestParser(BaseParser):
                     name=extra.get("name") or name or article,
                     brand=BRAND,
                     category=section,
-                    cost_price=_num(row[COL_PRICE]),
-                    sale_price=None,
+                    cost_price=cost,
+                    sale_price=round(cost * MARKUP, 2) if cost is not None else None,
                     image_url=" ".join(extra["images"]) if extra.get("images") else None,
                     external_variant_id=_VARIANT_IDS.get(article),
                     description=extra.get("description"),
