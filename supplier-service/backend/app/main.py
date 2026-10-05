@@ -86,6 +86,11 @@ def _lightweight_migrate():
 def on_startup():
     Base.metadata.create_all(bind=engine)
     _lightweight_migrate()
+    try:  # ссылки на реестры -> номера записей (идемпотентно, см. registry_numbers.py)
+        from .registry_numbers import convert_db
+        convert_db()
+    except Exception:  # noqa: BLE001 — замена данных не должна мешать запуску
+        pass
 
     db = SessionLocal()
     try:

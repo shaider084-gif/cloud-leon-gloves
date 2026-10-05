@@ -17,6 +17,7 @@ from typing import List, Optional
 
 import openpyxl
 
+from ..registry_numbers import convert_attributes as _registry_numbers
 from ..schemas import ProductIn
 from .base import BaseParser
 
@@ -65,6 +66,7 @@ class TechnoaviaParser(BaseParser):
                     brand = cleaned
                 else:
                     attributes[header[len(PARAM_PREFIX):]] = cleaned
+            _registry_numbers(attributes)  # «Реестр сертификатов/Минпромторг»: ссылка -> номер записи
 
             sale_price_raw = values.get("Цена продажи, ₽")
             try:
