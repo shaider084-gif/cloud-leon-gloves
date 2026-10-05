@@ -125,7 +125,9 @@ def supplier_detail(
 
     # Подсветка "уже был в старом каталоге / это новая позиция" не имеет
     # смысла для самого импортированного каталога и для тестового поставщика.
-    show_match_highlight = supplier.slug not in (IMPORT_SUPPLIER_SLUG, DEMO_SUPPLIER_SLUG)
+    # У ФЭСТ сопоставление с каталогом по артикулу пока не делаем (решение пользователя):
+    # в каталоге у большинства его товаров поле «Артикул» пустое, подсветка вводила бы в заблуждение.
+    show_match_highlight = supplier.slug not in (IMPORT_SUPPLIER_SLUG, DEMO_SUPPLIER_SLUG, "fest")
     reference_articles = get_import_articles(db) if show_match_highlight else set()
     matched_count = sum(1 for p in current_products if p.article and p.article in reference_articles)
 

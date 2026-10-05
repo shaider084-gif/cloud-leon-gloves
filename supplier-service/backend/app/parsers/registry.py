@@ -2,6 +2,7 @@ from typing import Optional
 
 from .base import BaseParser
 from .demo import DemoParser
+from .fest import FestParser
 from .gward import GwardParser
 from .jeta import JetaParser
 from .mapping import MappingParser
@@ -13,6 +14,7 @@ from .technoavia import TechnoaviaParser
 # его класс и добавьте сюда одну строку.
 PARSERS = {
     "demo": DemoParser,
+    "fest": FestParser,
     "gward": GwardParser,
     "jeta": JetaParser,
     "pkf_spetczaschita": SpetszaschitaParser,
