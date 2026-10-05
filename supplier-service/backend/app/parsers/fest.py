@@ -16,7 +16,8 @@
 (fest_ids.json: артикул прайса -> ID варианта в магазине).
 Цена из прайса (по артикулу) записывается как закупочная; цена продажи не
 считается — наценка для ФЭСТ не задана. Встроенные в файл картинки (≈235) не
-используются.
+используются; фото, описания, параметры и новые названия — из fest_extra.json
+(донор promza.ru, см. _load_extra).
 """
 import io
 import json
@@ -44,7 +45,21 @@ def _load_variant_ids() -> Dict[str, str]:
         return {}
 
 
+def _load_extra() -> Dict[str, dict]:
+    """Артикул прайса -> {name, images, description, attributes} из донора promza.ru
+    (fest_extra.json; собрано из таблицы донора и страниц сайта, описания и параметры
+    написаны заново; названия — по шаблону «Товар Бренд описание, приказ N, арт. X»).
+    Донор нашёл 178 из 234 артикулов; у остальных — только новое название."""
+    path = os.path.join(os.path.dirname(__file__), "fest_extra.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
 _VARIANT_IDS = _load_variant_ids()
+_EXTRA = _load_extra()
 COL_SECTION, COL_ARTICLE, COL_NAME, COL_VAT, COL_PRICE, COL_PACK, COL_BOX = 0, 1, 2, 9, 10, 12, 13
 
 
@@ -136,15 +151,20 @@ class FestParser(BaseParser):
                 if len(parts) == 2 and parts[0] and parts[1]:
                     attrs["Объем коробки, м3"] = parts[0]
                     attrs["Вес коробки, кг"] = parts[1]
+            extra = _EXTRA.get(article) or {}
+            if extra.get("attributes"):
+                attrs = {**extra["attributes"], **attrs}
             products.append(
                 ProductIn(
                     article=article,
-                    name=name or article,
+                    name=extra.get("name") or name or article,
                     brand=BRAND,
                     category=section,
                     cost_price=_num(row[COL_PRICE]),
                     sale_price=None,
+                    image_url=" ".join(extra["images"]) if extra.get("images") else None,
                     external_variant_id=_VARIANT_IDS.get(article),
+                    description=extra.get("description"),
                     attributes=attrs,
                 )
             )
