@@ -61,6 +61,18 @@ def _load_extra() -> Dict[str, dict]:
 
 _VARIANT_IDS = _load_variant_ids()
 _EXTRA = _load_extra()
+
+# Реестровые номера (проверено по реестрам 2026-10-06; ООО «Предприятие «ФЭСТ», ИНН 4442016903).
+# Росаккредитация (pub.fsa.gov.ru), только ДЕЙСТВУЮЩИЕ документы, где продукт назван прямо:
+#  - сертификат на жилет сигнальный (модель 2070, «ФЭСТ») — наборы автомобилиста с жилетом;
+#  - декларация на сумки/футляры торговой марки «ФЭСТ» — санитарные сумки и сумка-трансформер.
+# «Реестр Минпромторг» (ГИСП, ПП РФ 719): записей ФЭСТ не найдено — оставляем пустым.
+_CERT_VEST = "ЕАЭС RU С-RU.ПФ02.В.09123/24"
+_DECL_BAGS = "ЕАЭС N RU Д-RU.РА08.В.76884/24"
+_REGISTRY = {
+    **{a: {"Реестр сертификатов": _CERT_VEST} for a in ("3877", "1463", "1460", "1472", "3879", "1492", "3878", "3875")},
+    **{a: {"Реестр сертификатов": _DECL_BAGS} for a in ("1548", "1553", "3160")},
+}
 COL_SECTION, COL_ARTICLE, COL_NAME, COL_VAT, COL_PRICE, COL_PACK, COL_BOX = 0, 1, 2, 9, 10, 12, 13
 
 
@@ -156,6 +168,7 @@ class FestParser(BaseParser):
             extra = _EXTRA.get(article) or {}
             if extra.get("attributes"):
                 attrs = {**extra["attributes"], **attrs}
+            attrs.update(_REGISTRY.get(article, {}))
             products.append(
                 ProductIn(
                     article=article,
