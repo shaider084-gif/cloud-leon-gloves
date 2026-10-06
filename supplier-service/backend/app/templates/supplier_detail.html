@@ -168,7 +168,6 @@
         <tr>
             <th>Артикул</th>
             <th>Название</th>
-            <th>Категория</th>
             <th>Бренд</th>
             <th>Ед.</th>
             <th>Закупка</th>
@@ -188,7 +187,6 @@
         <tr class="{% if show_match_highlight %}{% if p.article and p.article in reference_articles %}row-matched{% else %}row-unmatched{% endif %}{% endif %}">
             <td>{{ p.article or "" }}</td>
             <td>{{ p.name }}</td>
-            <td>{{ p.category or "" }}</td>
             <td>{{ p.brand or "" }}</td>
             <td>{{ p.unit or "" }}</td>
             <td>{{ p.cost_price if p.cost_price is not none else "" }}</td>
