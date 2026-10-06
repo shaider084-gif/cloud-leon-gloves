@@ -94,6 +94,35 @@ def _open_workbook(file_path: str):
     return openpyxl.load_workbook(buf, read_only=True, data_only=True)
 
 
+_TYPE_BY_SECTION = [  # раздел прайса (начало) -> «Тип аптечки»
+    ("Аптечки автомобильные", "Автомобильная"),
+    ("Аптечки дорожные", "Автомобильная"),
+    ("Аптечки транспортные", "Автомобильная"),
+    ("Аптечка для оказания работникам", "Производственная"),
+    ("Приказы от", "Ведомственная"),
+    ("Аптечки для учреждений и производств", "Производственная"),
+    ("Аптечки для быта", "Бытовая"),
+    ("Медицинское имущество для ГО и ЧС", "ГО и ЧС"),
+    ("КИМГЗ", "ГО и ЧС"),
+    ("Аптечки отраслевые", "Отраслевая"),
+    ("Аптечки по приказам", "Ведомственная"),
+    ("Аптечки тактические", "Тактическая"),
+]
+
+
+def _aptechka_type(section: Optional[str], name: str) -> Optional[str]:
+    """«Тип аптечки» — назначение: по разделу прайса, с уточнением по названию."""
+    low = (name or "").lower()
+    if "антишок" in low or "посиндромн" in low:
+        return "Бытовая"
+    if any(k in low for k in ("перевозки опасных грузов", "для строителей", "удаленной промышленной")):
+        return "Производственная"
+    for prefix, kind in _TYPE_BY_SECTION:
+        if (section or "").startswith(prefix):
+            return kind
+    return None
+
+
 def _text(value) -> str:
     return "" if value is None else str(value).strip()
 
@@ -167,6 +196,14 @@ class FestParser(BaseParser):
             if extra.get("attributes"):
                 attrs = {**extra["attributes"], **attrs}
             attrs.update(_REGISTRY.get(article, {}))
+            # У донора «Тип» — это исполнение (переносной/стационарный); «Тип аптечки» — назначение.
+            donor_type = attrs.pop("Тип аптечки", None)
+            if donor_type and set(donor_type.split("##")) <= {"Переносной", "Портативный", "Стационарный"}:
+                attrs["Исполнение"] = donor_type
+            if attrs.get("Товар") in ("Аптечка", "Укладка"):
+                kind = _aptechka_type(section, extra.get("name") or name)
+                if kind:
+                    attrs["Тип аптечки"] = kind
             products.append(
                 ProductIn(
                     article=article,
