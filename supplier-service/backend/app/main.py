@@ -93,6 +93,8 @@ def on_startup():
     except Exception:  # noqa: BLE001 — замена данных не должна мешать запуску
         pass
     try:  # столбцы по умолчанию («Поставщик», «Страна производства» …), см. default_params.py
+        from .catalog_enrich import enrich_db
+        enrich_db()  # GWARD: данные из «Весь каталог» (до значений по умолчанию)
         from .default_params import fill_db
         fill_db()
     except Exception:  # noqa: BLE001

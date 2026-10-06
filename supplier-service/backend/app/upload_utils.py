@@ -55,11 +55,14 @@ def save_products(
         os.replace(tmp_path, dest_path)
         upload.file_path = dest_path
 
+    from .catalog_enrich import enrich  # дозаполнение из «Весь каталог» (GWARD)
     from .default_params import SKIP_SLUGS, apply_defaults  # столбцы по умолчанию у всех поставщиков
 
     for p in parsed_products:
+        p.description, p.image_url, p.external_product_id, p.attributes = enrich(
+            supplier.slug, p.article, p.name, p.description, p.image_url, p.external_product_id, p.attributes)
         if supplier.slug not in SKIP_SLUGS:
-            p.attributes = apply_defaults(p.attributes, supplier, p.article)
+            p.attributes = apply_defaults(p.attributes, supplier, p.article, p.name)
         db.add(
             models.Product(
                 upload_id=upload.id,
