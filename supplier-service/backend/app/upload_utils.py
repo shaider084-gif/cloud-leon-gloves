@@ -59,7 +59,7 @@ def save_products(
 
     for p in parsed_products:
         if supplier.slug not in SKIP_SLUGS:
-            p.attributes = apply_defaults(p.attributes, supplier)
+            p.attributes = apply_defaults(p.attributes, supplier, p.article)
         db.add(
             models.Product(
                 upload_id=upload.id,

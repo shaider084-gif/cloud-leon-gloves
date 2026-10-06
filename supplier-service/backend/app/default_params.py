@@ -10,6 +10,8 @@ apply_defaults — проставляет «Поставщик» (= назван
 fill_db — идемпотентно делает то же для уже сохранённых товаров последней загрузки
 каждого поставщика (вызывается при старте приложения).
 """
+import json
+import os
 from typing import Dict
 
 DEFAULT_PARAM_KEYS = ["Товар", "Поставщик", "Страна производства", "Вес", "Реестр сертификатов", "Реестр Минпромторг"]
@@ -24,9 +26,29 @@ COUNTRY_BY_SLUG = {
 }
 
 
-def apply_defaults(attributes: Dict, supplier) -> Dict:
+_OVERLAY_CACHE: Dict[str, Dict] = {}
+
+
+def _overlay(slug: str) -> Dict:
+    """registry_data/<slug>.json: {артикул: {«Реестр сертификатов»: …, «Реестр Минпромторг»: …}} —
+    реестровые номера, найденные в реестрах (Росаккредитация, ГИСП) и сопоставленные с артикулами."""
+    if slug not in _OVERLAY_CACHE:
+        path = os.path.join(os.path.dirname(__file__), "registry_data", f"{slug}.json")
+        try:
+            with open(path, encoding="utf-8") as f:
+                _OVERLAY_CACHE[slug] = json.load(f)
+        except (OSError, ValueError):
+            _OVERLAY_CACHE[slug] = {}
+    return _OVERLAY_CACHE[slug]
+
+
+def apply_defaults(attributes: Dict, supplier, article=None) -> Dict:
     """Возвращает attributes с обязательными значениями по умолчанию."""
     attrs = dict(attributes or {})
+    if article:
+        for k, v in _overlay(supplier.slug).get(article, {}).items():
+            if v and not attrs.get(k):
+                attrs[k] = v
     if not attrs.get("Поставщик"):
         attrs["Поставщик"] = supplier.name
     country = COUNTRY_BY_SLUG.get(supplier.slug)
@@ -56,7 +78,7 @@ def fill_db() -> int:
             if not last:
                 continue
             for p in db.query(models.Product).filter(models.Product.upload_id == last.id):
-                new = apply_defaults(p.attributes, sup)
+                new = apply_defaults(p.attributes, sup, p.article)
                 if new != (p.attributes or {}):
                     p.attributes = new  # новый dict — чтобы SQLAlchemy заметил изменение JSON
                     changed += 1
