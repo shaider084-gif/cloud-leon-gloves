@@ -152,9 +152,7 @@ class FestParser(BaseParser):
             attrs: Dict[str, str] = {}
             if barcode:
                 attrs["Штрихкод"] = barcode
-            vat = _fmt_int(row[COL_VAT])
-            if vat:
-                attrs["Ставка НДС"] = f"{vat}%"
+            # «Ставка НДС» из прайса в таблицу не выводим (решение пользователя, 2026-10-06).
             pack = _fmt_int(row[COL_PACK])
             if pack:
                 attrs["Количество в коробке"] = f"{pack} шт"
