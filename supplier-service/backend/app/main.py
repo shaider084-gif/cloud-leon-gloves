@@ -92,6 +92,11 @@ def on_startup():
         convert_db()
     except Exception:  # noqa: BLE001 — замена данных не должна мешать запуску
         pass
+    try:  # столбцы по умолчанию («Поставщик», «Страна производства» …), см. default_params.py
+        from .default_params import fill_db
+        fill_db()
+    except Exception:  # noqa: BLE001
+        pass
 
     db = SessionLocal()
     try:

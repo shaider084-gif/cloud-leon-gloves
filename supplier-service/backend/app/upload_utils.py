@@ -55,7 +55,11 @@ def save_products(
         os.replace(tmp_path, dest_path)
         upload.file_path = dest_path
 
+    from .default_params import SKIP_SLUGS, apply_defaults  # столбцы по умолчанию у всех поставщиков
+
     for p in parsed_products:
+        if supplier.slug not in SKIP_SLUGS:
+            p.attributes = apply_defaults(p.attributes, supplier)
         db.add(
             models.Product(
                 upload_id=upload.id,

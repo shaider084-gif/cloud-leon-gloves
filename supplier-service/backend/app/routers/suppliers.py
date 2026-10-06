@@ -14,6 +14,7 @@ from ..parsers.mapping import MappingParser, read_header_row
 from ..schemas import CANONICAL_FIELDS, IGNORE_FIELD, ATTRIBUTE_PREFIX
 from ..export import export_products_to_xlsx
 from ..catalog_sync import attr_label, attr_sort_key, is_service_key
+from ..default_params import DEFAULT_PARAM_KEYS
 from ..catalog import get_current_products, get_import_articles, IMPORT_SUPPLIER_SLUG, DEMO_SUPPLIER_SLUG
 from ..upload_utils import (
     save_upload_error as _save_upload_error,
@@ -70,8 +71,7 @@ def create_supplier(
 
 
 TOVAR_ATTR_KEY = "Товар"
-BASE_PARAM_KEYS = ["Товар", "Область применения", "Материал", "Защитные свойства", "Покрытие перчаток", "Цвет", "Класс вязки", "Утепленные", "Тип",
-                   "Реестр сертификатов", "Реестр Минпромторг"]  # реестровые номера — столбцы по умолчанию у всех поставщиков
+BASE_PARAM_KEYS = list(DEFAULT_PARAM_KEYS)  # столбцы по умолчанию у всех поставщиков (default_params.py)
 
 
 @router.get("/suppliers/{supplier_id}", response_class=HTMLResponse)
