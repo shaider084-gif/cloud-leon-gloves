@@ -39,6 +39,7 @@ def catalog_view(
     request: Request,
     brand: str = Query(""),
     tovar: str = Query(""),
+    q: str = Query(""),
     page: int = Query(1, ge=1),
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -60,6 +61,14 @@ def catalog_view(
         filtered = [p for p in filtered if p.brand == brand]
     if tovar:
         filtered = [p for p in filtered if (p.attributes or {}).get(TOVAR_ATTR_KEY) == tovar]
+    q = q.strip()
+    if q:  # поиск по артикулу (часть артикула), а также по названию и ID варианта
+        ql = q.lower()
+        filtered = [
+            p for p in filtered
+            if ql in (p.article or "").lower() or ql in (p.name or "").lower()
+            or ql == str(p.external_variant_id or "").strip()
+        ]
 
     # Набор "Параметр: X" столбцов сужается до реально заполненных хотя бы у
     # одного товара в ТЕКУЩЕЙ (отфильтрованной) выборке — без фильтра это
@@ -109,6 +118,7 @@ def catalog_view(
             "all_tovar_types": all_tovar_types,
             "selected_brand": brand,
             "selected_tovar": tovar,
+            "search_q": q,
             "core_columns": CORE_COLUMNS,
             "param_columns": param_columns,
             "last_update": last_update,

@@ -78,7 +78,11 @@
             {% endfor %}
         </select>
     </label>
-    {% if selected_brand or selected_tovar %}
+    <label>Поиск по артикулу
+        <input type="search" name="q" value="{{ search_q }}" placeholder="например 3738">
+    </label>
+    <button type="submit">Найти</button>
+    {% if selected_brand or selected_tovar or search_q %}
     <a href="/catalog" class="reset-filters">Сбросить фильтры</a>
     {% endif %}
 </form>
@@ -91,7 +95,7 @@
 </p>
 
 {% macro page_link(p) -%}
-/catalog?page={{ p }}{% if selected_brand %}&brand={{ selected_brand|urlencode }}{% endif %}{% if selected_tovar %}&tovar={{ selected_tovar|urlencode }}{% endif %}
+/catalog?page={{ p }}{% if selected_brand %}&brand={{ selected_brand|urlencode }}{% endif %}{% if selected_tovar %}&tovar={{ selected_tovar|urlencode }}{% endif %}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}
 {%- endmacro %}
 
 {% if total_pages > 1 %}
