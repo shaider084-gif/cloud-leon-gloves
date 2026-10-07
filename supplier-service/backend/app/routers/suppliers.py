@@ -14,7 +14,7 @@ from ..parsers.mapping import MappingParser, read_header_row
 from ..schemas import CANONICAL_FIELDS, IGNORE_FIELD, ATTRIBUTE_PREFIX
 from ..export import export_products_to_xlsx
 from ..catalog_sync import attr_label, attr_sort_key, is_service_key
-from ..default_params import DEFAULT_PARAM_KEYS
+from ..default_params import DEFAULT_PARAM_KEYS, SUPPLIER_EXTRA_KEYS
 from ..catalog import (get_current_products, get_import_articles, get_import_variant_ids, get_import_name_articles,
                        IMPORT_SUPPLIER_SLUG, DEMO_SUPPLIER_SLUG)
 from ..upload_utils import (
@@ -123,7 +123,8 @@ def supplier_detail(
     # с подписью без префикса «Параметр:» (как на вкладке «Весь каталог»).
     service_keys = sorted((k for k in used_keys if is_service_key(k)), key=attr_sort_key)
     used_keys = {k for k in used_keys if not is_service_key(k)}
-    param_keys = list(BASE_PARAM_KEYS) + sorted(used_keys - set(BASE_PARAM_KEYS)) + service_keys
+    base_keys = list(BASE_PARAM_KEYS) + list(SUPPLIER_EXTRA_KEYS.get(supplier.slug, []))
+    param_keys = base_keys + sorted(used_keys - set(base_keys)) + service_keys
     param_columns = [(k, attr_label(k)) for k in param_keys]
 
     # Подсветка "уже был в старом каталоге / это новая позиция" не имеет
@@ -201,7 +202,7 @@ def export_supplier_catalog(
         # остальные (та же логика, что у подсветки строк на странице поставщика).
         in_catalog = _catalog_matcher(db, supplier)
         products = [p for p in products if in_catalog(p) == bool(green)]
-    buf = export_products_to_xlsx(products)
+    buf = export_products_to_xlsx(products, extra_keys=SUPPLIER_EXTRA_KEYS.get(supplier.slug, []))
     suffix = " - ".join(x for x in (tovar, "зелёные" if green else "", "красные" if red and not green else "") if x)
     filename = quote(f"{supplier.name} - каталог{' - ' + suffix if suffix else ''}.xlsx".replace('"', ""))
     return StreamingResponse(

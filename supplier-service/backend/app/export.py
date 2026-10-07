@@ -25,7 +25,7 @@ BASE_PARAM_ORDER = ["Товар", "Размер", "Поставщик", "Стр�
 HEADER_FILL = PatternFill(start_color="FF92D050", end_color="FF92D050", fill_type="solid")
 
 
-def export_products_to_xlsx(products: List[models.Product]) -> BytesIO:
+def export_products_to_xlsx(products: List[models.Product], extra_keys=()) -> BytesIO:
     """Собирает products в xlsx: фиксированные колонки + динамические 'Параметр: X'
     из объединения ключей attributes по всем товарам (аналог структуры
     'Шаблон сиз рук')."""
@@ -38,7 +38,8 @@ def export_products_to_xlsx(products: List[models.Product]) -> BytesIO:
     # Служебные столбцы файла магазина («Файл: URL» …) — в конце, с исходным заголовком.
     service_keys = sorted((k for k in used if is_service_key(k)), key=attr_sort_key)
     used = {k for k in used if not is_service_key(k)}
-    attribute_keys: List[str] = [k for k in BASE_PARAM_ORDER] + sorted(used - set(BASE_PARAM_ORDER)) + service_keys
+    base_keys = list(BASE_PARAM_ORDER) + [k for k in extra_keys if k not in BASE_PARAM_ORDER]  # extra_keys — столбцы поставщика (default_params.SUPPLIER_EXTRA_KEYS)
+    attribute_keys: List[str] = base_keys + sorted(used - set(base_keys)) + service_keys
 
     wb = openpyxl.Workbook()
     ws = wb.active
