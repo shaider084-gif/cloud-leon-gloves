@@ -7,6 +7,7 @@ Product'ов последней успешной (status='done') загрузк�
 если понадобится полноценная история изменений одного товара — заменить на
 модель с апсертом по (supplier_id, article).
 """
+import re
 from dataclasses import dataclass, field
 from typing import List, Optional, Set
 
@@ -80,6 +81,19 @@ def get_import_variant_ids(db: Session) -> Set[str]:
         return set()
     return {str(p.external_variant_id).strip() for p in get_current_products(db, supplier.id)
             if p.external_variant_id and str(p.external_variant_id).strip()}
+
+
+def get_import_name_articles(db: Session) -> Set[str]:
+    """Артикулы, записанные в названиях «Весь каталог» («…, арт. 3738») — для товаров,
+    у которых столбец «Артикул» на сайте пуст."""
+    supplier = db.query(models.Supplier).filter(models.Supplier.slug == IMPORT_SUPPLIER_SLUG).first()
+    if not supplier:
+        return set()
+    found: Set[str] = set()
+    for p in get_current_products(db, supplier.id):
+        for m in re.finditer(r"арт\.?\s*([\w\-./]+)", p.name or "", re.I):
+            found.add(m.group(1).rstrip(".,;"))
+    return found
 
 
 def get_active_supplier_articles(db: Session) -> Set[str]:

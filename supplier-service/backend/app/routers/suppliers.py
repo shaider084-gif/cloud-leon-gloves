@@ -15,7 +15,7 @@ from ..schemas import CANONICAL_FIELDS, IGNORE_FIELD, ATTRIBUTE_PREFIX
 from ..export import export_products_to_xlsx
 from ..catalog_sync import attr_label, attr_sort_key, is_service_key
 from ..default_params import DEFAULT_PARAM_KEYS
-from ..catalog import (get_current_products, get_import_articles, get_import_variant_ids,
+from ..catalog import (get_current_products, get_import_articles, get_import_variant_ids, get_import_name_articles,
                        IMPORT_SUPPLIER_SLUG, DEMO_SUPPLIER_SLUG)
 from ..upload_utils import (
     save_upload_error as _save_upload_error,
@@ -157,6 +157,7 @@ def supplier_detail(
     )
 
 
+NAME_ARTICLE_SLUGS = {"fest"}
 VARIANT_ID_MATCH_SLUGS = set()  # поставщики, которых сверяем по «ID варианта», а не по артикулу (ФЭСТ теперь по артикулу)
 
 
@@ -166,6 +167,8 @@ def _catalog_matcher(db: Session, supplier):
         ids = get_import_variant_ids(db)
         return lambda p: bool(p.external_variant_id and str(p.external_variant_id).strip() in ids)
     articles = get_import_articles(db)
+    if supplier.slug in NAME_ARTICLE_SLUGS:  # у части товаров артикул в «Весь каталог» только в названии: «…, арт. 3738»
+        articles = articles | get_import_name_articles(db)
     return lambda p: bool(p.article and p.article in articles)
 
 
