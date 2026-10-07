@@ -118,6 +118,7 @@ def supplier_detail(
             if v not in (None, ""):
                 used_keys.add(k)
     used_keys.discard("Размер")  # у него своя колонка "Размеры"
+    used_keys.discard("Бренд")  # бренд — фиксированный столбец «Параметр: Бренд»
     # Служебные столбцы файла магазина («Файл: URL», «Файл: Тег title» …) — в конце,
     # с подписью без префикса «Параметр:» (как на вкладке «Весь каталог»).
     service_keys = sorted((k for k in used_keys if is_service_key(k)), key=attr_sort_key)

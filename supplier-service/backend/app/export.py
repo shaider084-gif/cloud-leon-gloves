@@ -8,7 +8,10 @@ from . import models
 from .catalog_sync import attr_label, attr_sort_key, is_service_key
 from .schemas import CANONICAL_FIELDS
 
-FIXED_COLUMNS = CANONICAL_FIELDS + [
+# Заголовки по решению пользователя (2026-10-07): название — всегда «Название товара или услуги»,
+# бренд — «Параметр: Бренд» (как в файле магазина).
+_FIXED_LABELS = {"name": "Название товара или услуги", "brand": "Параметр: Бренд"}
+FIXED_COLUMNS = [(f, _FIXED_LABELS.get(f, label)) for f, label in CANONICAL_FIELDS] + [
     ("sale_price", "Цена продажи"),
     ("external_product_id", "ID товара"),
     ("external_variant_id", "ID варианта"),
@@ -30,7 +33,7 @@ def export_products_to_xlsx(products: List[models.Product]) -> BytesIO:
     used = set()
     for p in products:
         for key, val in (p.attributes or {}).items():
-            if val not in (None, ""):
+            if val not in (None, "") and key != "Бренд":  # бренд — фиксированный столбец «Параметр: Бренд»
                 used.add(key)
     # Служебные столбцы файла магазина («Файл: URL» …) — в конце, с исходным заголовком.
     service_keys = sorted((k for k in used if is_service_key(k)), key=attr_sort_key)
