@@ -127,8 +127,7 @@ def supplier_detail(
 
     # Подсветка "уже был в старом каталоге / это новая позиция" не имеет
     # смысла для самого импортированного каталога и для тестового поставщика.
-    # У ФЭСТ сопоставление с каталогом по артикулу пока не делаем (решение пользователя):
-    # в каталоге у большинства его товаров поле «Артикул» пустое, подсветка вводила бы в заблуждение.
+    # У ФЭСТ в каталоге артикул есть не у всех — см. _catalog_matcher (артикул, «арт. N» в названии, ID варианта).
     show_match_highlight = supplier.slug not in (IMPORT_SUPPLIER_SLUG, DEMO_SUPPLIER_SLUG)
     in_catalog = _catalog_matcher(db, supplier) if show_match_highlight else (lambda p: False)
     matched_ids = {p.id for p in current_products if in_catalog(p)}
@@ -158,18 +157,23 @@ def supplier_detail(
 
 
 NAME_ARTICLE_SLUGS = {"fest"}
-VARIANT_ID_MATCH_SLUGS = set()  # поставщики, которых сверяем по «ID варианта», а не по артикулу (ФЭСТ теперь по артикулу)
+VARIANT_ID_MATCH_SLUGS = {"fest"}  # у этих поставщиков товар «на сайте» и если совпал «ID варианта» (артикул в каталоге есть не у всех)
 
 
 def _catalog_matcher(db: Session, supplier):
-    """Возвращает функцию «товар уже есть в Весь каталог (на сайте)»: по артикулу, а для ФЭСТ — по ID варианта."""
-    if supplier.slug in VARIANT_ID_MATCH_SLUGS:
-        ids = get_import_variant_ids(db)
-        return lambda p: bool(p.external_variant_id and str(p.external_variant_id).strip() in ids)
+    """Возвращает функцию «товар уже есть в Весь каталог (на сайте)»: по артикулу;
+    для ФЭСТ ещё и по «арт. N» из названия и по ID варианта."""
     articles = get_import_articles(db)
     if supplier.slug in NAME_ARTICLE_SLUGS:  # у части товаров артикул в «Весь каталог» только в названии: «…, арт. 3738»
         articles = articles | get_import_name_articles(db)
-    return lambda p: bool(p.article and p.article in articles)
+    ids = get_import_variant_ids(db) if supplier.slug in VARIANT_ID_MATCH_SLUGS else set()
+
+    def matched(p) -> bool:
+        if p.article and p.article in articles:
+            return True
+        return bool(ids and p.external_variant_id and str(p.external_variant_id).strip() in ids)
+
+    return matched
 
 
 @router.get("/suppliers/{supplier_id}/export")
