@@ -3,6 +3,7 @@ from typing import Optional
 from .base import BaseParser
 from .demo import DemoParser
 from .fest import FestParser
+from .foxweld import FoxweldParser
 from .gward import GwardParser
 from .jeta import JetaParser
 from .mapping import MappingParser
@@ -15,6 +16,7 @@ from .technoavia import TechnoaviaParser
 PARSERS = {
     "demo": DemoParser,
     "fest": FestParser,
+    "foxweld": FoxweldParser,
     "gward": GwardParser,
     "jeta": JetaParser,
     "pkf_spetczaschita": SpetszaschitaParser,

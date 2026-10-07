@@ -152,10 +152,21 @@ def supplier_detail(
             "selected_tovar": tovar,
             "param_keys": param_keys,
             "param_columns": param_columns,
+            "sync": _sync_context(db, supplier),
             "latest_upload": uploads[0] if uploads else None,
             "previous_upload": uploads[1] if len(uploads) > 1 else None,
         },
     )
+
+
+def _sync_context(db: Session, supplier):
+    """Карточка «Источники прайса / Обновить» (source_sync.py) — только у поставщиков с онлайн-прайсами."""
+    from ..source_sync import SYNC_SLUGS, SOURCE_SLOTS, get_sources
+    if supplier.slug not in SYNC_SLUGS:
+        return None
+    sources = get_sources(db, supplier.id)
+    urls = [s.url for s in sources] + [""] * SOURCE_SLOTS
+    return {"urls": urls[:SOURCE_SLOTS], "statuses": [s.last_status for s in sources]}
 
 
 NAME_ARTICLE_SLUGS = {"fest"}

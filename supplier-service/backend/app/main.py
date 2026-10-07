@@ -8,7 +8,7 @@ from .database import Base, engine, SessionLocal
 from .config import settings
 from .security import hash_password
 from . import models
-from .routers import auth, suppliers, users, price_updates, catalog_view, price_compare, reparse
+from .routers import auth, suppliers, users, price_updates, catalog_view, price_compare, reparse, source_sync
 
 app = FastAPI(title="Сервис управления поставщиками и прайс-листами")
 
@@ -19,6 +19,7 @@ app.include_router(auth.router)
 app.include_router(suppliers.router)
 app.include_router(price_updates.router)
 app.include_router(reparse.router)
+app.include_router(source_sync.router)
 app.include_router(catalog_view.router)
 app.include_router(price_compare.router)
 app.include_router(users.router)

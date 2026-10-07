@@ -83,6 +83,8 @@
     </div>
 </div>
 
+{% if sync %}{% include "_sync_card.html" %}{% endif %}
+
 <p><button type="button" id="history-open">🕘 История загрузок ({{ uploads|length }})</button></p>
 <dialog id="history-dialog" class="history-dialog">
 <div class="history-head">

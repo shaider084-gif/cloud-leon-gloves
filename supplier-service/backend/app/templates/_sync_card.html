@@ -1,0 +1,74 @@
+<div class="card" id="sync-card">
+    <h2>Прайсы по ссылкам и обновление</h2>
+    <p class="hint">Вставьте публичные ссылки на файлы .xlsx (Яндекс.Диск → «Поделиться» → ссылка вида disk.yandex.ru/…).
+        Яндекс.Документы по ссылке docs.yandex.ru сервис открыть не может — там капча.
+        Кнопка «Обновить» скачивает прайсы, обновляет «РРЦ» и «Цена VIP» у существующих товаров
+        и добавляет новые (колонка «Новый» = Да, «Дата добавления»). Ничего не удаляется.</p>
+    <form method="post" action="/suppliers/{{ supplier.id }}/sources">
+        {% for u in sync.urls %}
+        <p style="margin:4px 0">
+            <input type="text" name="url{{ loop.index }}" value="{{ u }}" placeholder="Ссылка на прайс {{ loop.index }}" style="width:100%">
+            {% if sync.statuses[loop.index0] %}<span class="hint">{{ sync.statuses[loop.index0] }}</span>{% endif %}
+        </p>
+        {% endfor %}
+        <button type="submit">Сохранить ссылки</button>
+    </form>
+    <p style="margin-top:12px">
+        <button type="button" id="sync-btn">⟳ Обновить</button>
+        <span class="hint" id="sync-msg"></span>
+    </p>
+    <div id="sync-result"></div>
+</div>
+<script>
+(function () {
+    var btn = document.getElementById("sync-btn");
+    var msg = document.getElementById("sync-msg");
+    var box = document.getElementById("sync-result");
+    var base = "/suppliers/{{ supplier.id }}/sync";
+    var started = false;
+
+    function esc(s) { return String(s == null ? "" : s).replace(/[&<>]/g, function (c) { return {"&": "&amp;", "<": "&lt;", ">": "&gt;"}[c]; }); }
+
+    function render(res) {
+        if (!res) return;
+        var h = "";
+        if (res.new && res.new.length) {
+            h += "<p><b>Новые товары (" + res.new.length + "):</b></p><ul>";
+            res.new.forEach(function (n) { h += "<li>" + esc(n.article) + " — " + esc(n.name) + (n.retail != null ? " (РРЦ " + esc(n.retail) + ")" : "") + "</li>"; });
+            h += "</ul>";
+        }
+        if (res.changed && res.changed.length) {
+            h += "<p><b>Изменились цены (" + res.changed.length + "):</b></p><ul>";
+            res.changed.slice(0, 100).forEach(function (c) {
+                var parts = Object.keys(c.new).map(function (k) { return esc(k) + ": " + esc(c.old[k] || "—") + " → " + esc(c.new[k]); });
+                h += "<li>" + esc(c.article) + " — " + esc(c.name) + " (" + parts.join("; ") + ")</li>";
+            });
+            h += "</ul>";
+        }
+        box.innerHTML = h;
+    }
+
+    function poll() {
+        fetch(base + "/status", {credentials: "same-origin"})
+            .then(function (r) { return r.json(); })
+            .then(function (s) {
+                if (s.status === "running") { btn.disabled = true; msg.textContent = s.message || "Обновляю…"; setTimeout(poll, 1500); return; }
+                btn.disabled = false;
+                if (s.status === "done" || s.status === "error") {
+                    msg.textContent = s.message || "";
+                    if (s.status === "done") { render(s.result); if (started) { msg.textContent += " Страница обновится через пару секунд…"; setTimeout(function () { location.reload(); }, 6000); } }
+                }
+            })
+            .catch(function () { setTimeout(poll, 3000); });
+    }
+
+    btn.addEventListener("click", function () {
+        started = true; btn.disabled = true; msg.textContent = "Запускаю…";
+        fetch(base, {method: "POST", credentials: "same-origin"})
+            .then(function (r) { if (r.status === 401) { location.href = "/login"; } else { poll(); } })
+            .catch(function () { btn.disabled = false; msg.textContent = "Не удалось запустить"; });
+    });
+    fetch(base + "/status", {credentials: "same-origin"}).then(function (r) { return r.json(); })
+        .then(function (s) { if (s.status === "running") { started = true; poll(); } else if (s.status === "done") { render(s.result); msg.textContent = s.message; } }).catch(function () {});
+})();
+</script>
