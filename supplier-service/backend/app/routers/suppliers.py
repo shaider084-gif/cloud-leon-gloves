@@ -157,7 +157,7 @@ def supplier_detail(
     )
 
 
-VARIANT_ID_MATCH_SLUGS = {"fest"}  # в «Весь каталог» у их товаров нет артикулов — сверяем по «ID варианта»
+VARIANT_ID_MATCH_SLUGS = set()  # поставщики, которых сверяем по «ID варианта», а не по артикулу (ФЭСТ теперь по артикулу)
 
 
 def _catalog_matcher(db: Session, supplier):
