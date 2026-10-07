@@ -111,7 +111,10 @@ def apply_defaults(attributes: Dict, supplier, article=None, name: str = "") -> 
     attrs = dict(attributes or {})
     if article:
         for k, v in _overlay(supplier.slug).get(article, {}).items():
-            if v and not attrs.get(k):
+            if k.startswith("="):  # «=Ключ» — значение из справочника главнее значения из прайса
+                if v:
+                    attrs[k[1:]] = v
+            elif v and not attrs.get(k):
                 attrs[k] = v
     if not attrs.get("Поставщик"):
         attrs["Поставщик"] = supplier.name
