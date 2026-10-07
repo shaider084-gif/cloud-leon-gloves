@@ -80,6 +80,7 @@ def supplier_detail(
     supplier_id: int,
     request: Request,
     tovar: str = Query(""),
+    page: int = Query(1, ge=1),
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -135,6 +136,17 @@ def supplier_detail(
     matched_ids = {p.id for p in current_products if in_catalog(p)}
     matched_count = len(matched_ids)
 
+    # Очень широкие таблицы (FoxWeld: 1897 строк x 320 столбцов ≈ 70 МБ HTML) показываем порциями;
+    # у остальных поставщиков (до ~60 тыс. ячеек) всё как раньше — одной таблицей.
+    ncols = len(param_columns) + 11
+    page_size = max(50, 60000 // ncols) if len(current_products) * ncols > 60000 else 0
+    if page_size:
+        total_pages = max(1, (len(current_products) + page_size - 1) // page_size)
+        page = min(page, total_pages)
+        page_products = current_products[(page - 1) * page_size: page * page_size]
+    else:
+        total_pages, page, page_products = 1, 1, current_products
+
     return templates.TemplateResponse(
         "supplier_detail.html",
         {
@@ -145,6 +157,10 @@ def supplier_detail(
             "has_custom_parser": custom_parser is not None,
             "has_mapping": bool(supplier.column_mapping),
             "products": current_products,
+            "page_products": page_products,
+            "page": page,
+            "total_pages": total_pages,
+            "page_size": page_size,
             "show_match_highlight": show_match_highlight,
             "matched_ids": matched_ids,
             "matched_count": matched_count,

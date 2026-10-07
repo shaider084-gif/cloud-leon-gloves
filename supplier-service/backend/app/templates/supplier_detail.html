@@ -163,6 +163,16 @@
     <span class="legend-dot legend-red"></span> нет на сайте ({{ products|length - matched_count }})
 </p>
 {% endif %}
+{% macro page_link(n) -%}
+/suppliers/{{ supplier.id }}?page={{ n }}{% if selected_tovar %}&tovar={{ selected_tovar|urlencode }}{% endif %}
+{%- endmacro %}
+{% if total_pages > 1 %}
+<p class="pagination">
+    {% if page > 1 %}<a href="{{ page_link(page - 1) }}">← Предыдущая</a>{% endif %}
+    <span class="hint">Страница {{ page }} из {{ total_pages }} (по {{ page_size }} товаров)</span>
+    {% if page < total_pages %}<a href="{{ page_link(page + 1) }}">Следующая →</a>{% endif %}
+</p>
+{% endif %}
 {% if products %}
 <div class="table-scroll" id="catalog-scroll">
 <table class="list">
@@ -185,7 +195,7 @@
         </tr>
     </thead>
     <tbody>
-        {% for p in products %}
+        {% for p in page_products %}
         <tr class="{% if show_match_highlight %}{% if p.id in matched_ids %}row-matched{% else %}row-unmatched{% endif %}{% endif %}">
             <td>{{ p.article or "" }}</td>
             <td>{{ p.name }}</td>
