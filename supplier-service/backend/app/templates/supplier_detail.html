@@ -156,9 +156,9 @@
 {% endif %}
 {% if products and show_match_highlight %}
 <p class="hint match-legend">
-    <span class="legend-dot legend-green"></span> уже был в старом каталоге ({{ matched_count }})
+    <span class="legend-dot legend-green"></span> есть на сайте, в «Весь каталог» ({{ matched_count }})
     &nbsp;&nbsp;
-    <span class="legend-dot legend-red"></span> новая позиция, в старом каталоге не было ({{ products|length - matched_count }})
+    <span class="legend-dot legend-red"></span> нет на сайте ({{ products|length - matched_count }})
 </p>
 {% endif %}
 {% if products %}
@@ -184,7 +184,7 @@
     </thead>
     <tbody>
         {% for p in products %}
-        <tr class="{% if show_match_highlight %}{% if p.article and p.article in reference_articles %}row-matched{% else %}row-unmatched{% endif %}{% endif %}">
+        <tr class="{% if show_match_highlight %}{% if p.id in matched_ids %}row-matched{% else %}row-unmatched{% endif %}{% endif %}">
             <td>{{ p.article or "" }}</td>
             <td>{{ p.name }}</td>
             <td>{{ p.brand or "" }}</td>

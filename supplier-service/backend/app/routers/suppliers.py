@@ -15,7 +15,8 @@ from ..schemas import CANONICAL_FIELDS, IGNORE_FIELD, ATTRIBUTE_PREFIX
 from ..export import export_products_to_xlsx
 from ..catalog_sync import attr_label, attr_sort_key, is_service_key
 from ..default_params import DEFAULT_PARAM_KEYS
-from ..catalog import get_current_products, get_import_articles, IMPORT_SUPPLIER_SLUG, DEMO_SUPPLIER_SLUG
+from ..catalog import (get_current_products, get_import_articles, get_import_variant_ids,
+                       IMPORT_SUPPLIER_SLUG, DEMO_SUPPLIER_SLUG)
 from ..upload_utils import (
     save_upload_error as _save_upload_error,
     save_products as _save_products,
@@ -128,9 +129,10 @@ def supplier_detail(
     # смысла для самого импортированного каталога и для тестового поставщика.
     # У ФЭСТ сопоставление с каталогом по артикулу пока не делаем (решение пользователя):
     # в каталоге у большинства его товаров поле «Артикул» пустое, подсветка вводила бы в заблуждение.
-    show_match_highlight = supplier.slug not in (IMPORT_SUPPLIER_SLUG, DEMO_SUPPLIER_SLUG, "fest")
-    reference_articles = get_import_articles(db) if show_match_highlight else set()
-    matched_count = sum(1 for p in current_products if p.article and p.article in reference_articles)
+    show_match_highlight = supplier.slug not in (IMPORT_SUPPLIER_SLUG, DEMO_SUPPLIER_SLUG)
+    in_catalog = _catalog_matcher(db, supplier) if show_match_highlight else (lambda p: False)
+    matched_ids = {p.id for p in current_products if in_catalog(p)}
+    matched_count = len(matched_ids)
 
     return templates.TemplateResponse(
         "supplier_detail.html",
@@ -143,7 +145,7 @@ def supplier_detail(
             "has_mapping": bool(supplier.column_mapping),
             "products": current_products,
             "show_match_highlight": show_match_highlight,
-            "reference_articles": reference_articles,
+            "matched_ids": matched_ids,
             "matched_count": matched_count,
             "all_tovar_types": all_tovar_types,
             "selected_tovar": tovar,
@@ -153,6 +155,18 @@ def supplier_detail(
             "previous_upload": uploads[1] if len(uploads) > 1 else None,
         },
     )
+
+
+VARIANT_ID_MATCH_SLUGS = {"fest"}  # в «Весь каталог» у их товаров нет артикулов — сверяем по «ID варианта»
+
+
+def _catalog_matcher(db: Session, supplier):
+    """Возвращает функцию «товар уже есть в Весь каталог (на сайте)»: по артикулу, а для ФЭСТ — по ID варианта."""
+    if supplier.slug in VARIANT_ID_MATCH_SLUGS:
+        ids = get_import_variant_ids(db)
+        return lambda p: bool(p.external_variant_id and str(p.external_variant_id).strip() in ids)
+    articles = get_import_articles(db)
+    return lambda p: bool(p.article and p.article in articles)
 
 
 @router.get("/suppliers/{supplier_id}/export")
@@ -177,8 +191,7 @@ def export_supplier_catalog(
     if green or red:
         # «Зелёные» — товары, артикул которых уже есть в «Весь каталог», «красные» —
         # остальные (та же логика, что у подсветки строк на странице поставщика).
-        reference_articles = get_import_articles(db)
-        in_catalog = lambda p: bool(p.article and p.article in reference_articles)  # noqa: E731
+        in_catalog = _catalog_matcher(db, supplier)
         products = [p for p in products if in_catalog(p) == bool(green)]
     buf = export_products_to_xlsx(products)
     suffix = " - ".join(x for x in (tovar, "зелёные" if green else "", "красные" if red and not green else "") if x)

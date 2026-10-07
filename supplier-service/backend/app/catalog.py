@@ -72,6 +72,16 @@ def get_import_articles(db: Session) -> Set[str]:
     return {p.article for p in get_current_products(db, supplier.id) if p.article}
 
 
+def get_import_variant_ids(db: Session) -> Set[str]:
+    """«ID варианта» из «Весь каталог» (зеркало сайта) — по ним сопоставляются поставщики,
+    у которых артикулов в каталоге нет (ФЭСТ)."""
+    supplier = db.query(models.Supplier).filter(models.Supplier.slug == IMPORT_SUPPLIER_SLUG).first()
+    if not supplier:
+        return set()
+    return {str(p.external_variant_id).strip() for p in get_current_products(db, supplier.id)
+            if p.external_variant_id and str(p.external_variant_id).strip()}
+
+
 def get_active_supplier_articles(db: Session) -> Set[str]:
     """Артикулы по ВСЕМ реально ведущимся поставщикам (то есть кроме
     служебных demo/catalog-import) — используется на вкладке "Весь каталог",
