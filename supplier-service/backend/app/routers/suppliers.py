@@ -15,7 +15,8 @@ from ..schemas import CANONICAL_FIELDS, IGNORE_FIELD, ATTRIBUTE_PREFIX
 from ..export import export_products_to_xlsx
 from ..catalog_sync import attr_label, attr_sort_key, is_service_key
 from ..default_params import DEFAULT_PARAM_KEYS, SUPPLIER_EXTRA_KEYS
-from ..catalog import (get_current_products, get_import_articles, get_import_variant_ids, get_import_name_articles,
+from ..catalog import (NAME_ARTICLE_SLUGS, VARIANT_ID_MATCH_SLUGS,
+                       get_current_products, get_import_articles, get_import_variant_ids, get_import_name_articles,
                        IMPORT_SUPPLIER_SLUG, DEMO_SUPPLIER_SLUG)
 from ..upload_utils import (
     save_upload_error as _save_upload_error,
@@ -185,8 +186,8 @@ def _sync_context(db: Session, supplier):
     return {"urls": urls[:SOURCE_SLOTS], "statuses": [s.last_status for s in sources]}
 
 
-NAME_ARTICLE_SLUGS = {"fest"}
-VARIANT_ID_MATCH_SLUGS = {"fest"}  # у этих поставщиков товар «на сайте» и если совпал «ID варианта» (артикул в каталоге есть не у всех)
+# NAME_ARTICLE_SLUGS / VARIANT_ID_MATCH_SLUGS (артикул «арт. N» из названия и «ID варианта» — у поставщиков,
+# чьи товары в «Весь каталог» без артикула) заданы в catalog.py и общие со вкладкой «Весь каталог».
 
 
 def _catalog_matcher(db: Session, supplier):

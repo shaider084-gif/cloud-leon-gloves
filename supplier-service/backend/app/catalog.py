@@ -9,7 +9,7 @@ Product'ов последней успешной (status='done') загрузк�
 """
 import re
 from dataclasses import dataclass, field
-from typing import List, Optional, Set
+from typing import List, Optional, Set  # noqa: F401
 
 from sqlalchemy.orm import Session
 
@@ -107,6 +107,46 @@ def get_active_supplier_articles(db: Session) -> Set[str]:
     ).all():
         articles.update(p.article for p in get_current_products(db, supplier.id) if p.article)
     return articles
+
+
+# Поставщики, у которых в «Весь каталог» артикул бывает только в названии («…, арт. 3738») или
+# вообще не заполнен — их товары сопоставляются ещё и по «арт. N» из названия и по «ID варианта».
+# Те же правила использует страница поставщика (routers/suppliers.py: _catalog_matcher).
+NAME_ARTICLE_SLUGS = {"fest"}
+VARIANT_ID_MATCH_SLUGS = {"fest"}
+_NAME_ARTICLE_RE = re.compile(r"арт\.?\s*([\w\-./]+)", re.I)
+
+
+def name_articles(name: Optional[str]) -> List[str]:
+    return [m.group(1).rstrip(".,;") for m in _NAME_ARTICLE_RE.finditer(name or "")]
+
+
+def get_active_match_index(db: Session) -> dict:
+    """Что считается «в работе у поставщика» для подсветки вкладки «Весь каталог»:
+    articles — артикулы всех поставщиков; name_articles/variant_ids — артикулы и ID вариантов
+    поставщиков с особыми правилами (NAME_ARTICLE_SLUGS / VARIANT_ID_MATCH_SLUGS)."""
+    idx = {"articles": set(), "name_articles": set(), "variant_ids": set()}
+    for supplier in db.query(models.Supplier).filter(
+        models.Supplier.slug.notin_([DEMO_SUPPLIER_SLUG, IMPORT_SUPPLIER_SLUG])
+    ).all():
+        for p in get_current_products(db, supplier.id):
+            if p.article:
+                idx["articles"].add(p.article)
+                if supplier.slug in NAME_ARTICLE_SLUGS:
+                    idx["name_articles"].add(p.article)
+            if supplier.slug in VARIANT_ID_MATCH_SLUGS and p.external_variant_id and str(p.external_variant_id).strip():
+                idx["variant_ids"].add(str(p.external_variant_id).strip())
+    return idx
+
+
+def is_in_work(p: models.Product, idx: dict) -> bool:
+    """Строка «Весь каталог» уже ведётся каким-то поставщиком?"""
+    if p.article and p.article in idx["articles"]:
+        return True
+    vid = str(p.external_variant_id or "").strip()
+    if vid and vid in idx["variant_ids"]:
+        return True
+    return any(a in idx["name_articles"] for a in name_articles(p.name))
 
 
 @dataclass

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..deps import get_current_user
 from ..templating import templates
-from ..catalog import get_import_products, get_active_supplier_articles, IMPORT_SUPPLIER_SLUG
+from ..catalog import get_import_products, get_active_match_index, is_in_work, IMPORT_SUPPLIER_SLUG
 from .. import catalog_sync, models
 
 router = APIRouter()
@@ -48,7 +48,7 @@ def catalog_view(
         return RedirectResponse("/login", status_code=303)
 
     all_products = get_import_products(db)
-    active_supplier_articles = get_active_supplier_articles(db)
+    match_index = get_active_match_index(db)
 
     all_brands = sorted({p.brand for p in all_products if p.brand})
     tovar_counts = Counter(
@@ -97,7 +97,8 @@ def catalog_view(
     # десятки МБ HTML и вешает браузер (проверено: 7351 строк x 269 колонок
     # → 82 МБ, ~2 млн ячеек DOM) — поэтому показываем порциями.
     total_count = len(filtered)
-    matched_count = sum(1 for p in filtered if p.article and p.article in active_supplier_articles)
+    matched_ids = {p.id for p in filtered if is_in_work(p, match_index)}
+    matched_count = len(matched_ids)
     unmatched_count = total_count - matched_count
     total_pages = max(1, (total_count + PAGE_SIZE - 1) // PAGE_SIZE)
     page = min(page, total_pages)
@@ -113,7 +114,7 @@ def catalog_view(
             "total_count": total_count,
             "matched_count": matched_count,
             "unmatched_count": unmatched_count,
-            "active_supplier_articles": active_supplier_articles,
+            "matched_ids": matched_ids,
             "all_brands": all_brands,
             "all_tovar_types": all_tovar_types,
             "selected_brand": brand,

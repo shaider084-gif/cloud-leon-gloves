@@ -121,7 +121,7 @@
     </thead>
     <tbody>
         {% for p in products %}
-        <tr class="{% if p.article and p.article in active_supplier_articles %}row-matched{% else %}row-unmatched{% endif %}">
+        <tr class="{% if p.id in matched_ids %}row-matched{% else %}row-unmatched{% endif %}">
             {% for key, label in core_columns %}
             <td>
                 {% if key == "description" %}
